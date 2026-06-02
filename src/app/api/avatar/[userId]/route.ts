@@ -1,0 +1,33 @@
+import { eq } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db/client";
+import { profiles } from "@/lib/db/schema";
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ userId: string }> },
+) {
+  const { userId } = await context.params;
+
+  const [profile] = await db
+    .select({ avatarWebp: profiles.avatarWebp, avatarUpdatedAt: profiles.avatarUpdatedAt })
+    .from(profiles)
+    .where(eq(profiles.userId, userId))
+    .limit(1);
+
+  if (!profile?.avatarWebp) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  const buffer = Buffer.from(profile.avatarWebp, "base64");
+
+  return new NextResponse(buffer, {
+    headers: {
+      "Content-Type": "image/webp",
+      "Cache-Control": "private, max-age=3600, stale-while-revalidate=86400",
+      ...(profile.avatarUpdatedAt
+        ? { "Last-Modified": profile.avatarUpdatedAt.toUTCString() }
+        : {}),
+    },
+  });
+}
