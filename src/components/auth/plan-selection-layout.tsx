@@ -37,7 +37,7 @@ export function PlanSelectionLayout({
         />
       </div>
 
-      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
+      <main className="finia-scroll relative z-10 mx-auto min-h-0 w-full max-w-6xl overflow-y-auto px-4 pb-12 pt-28 sm:px-6 sm:pt-32">
         <div className="mx-auto mb-8 max-w-2xl text-center">
           <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
           <p className="mt-2 text-sm text-white/60 sm:text-base">{subtitle}</p>
