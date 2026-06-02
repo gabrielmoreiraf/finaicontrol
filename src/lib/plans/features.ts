@@ -1,7 +1,7 @@
 import type { SubscriptionPlan } from "@/types/finance";
 import { getPlanLabel } from "@/lib/plans";
 
-export const FREE_MONTHLY_ENTRY_LIMIT = 50;
+export const FREE_MONTHLY_ENTRY_LIMIT = 5;
 
 export type PlanFeature =
   | "dashboard_basic"

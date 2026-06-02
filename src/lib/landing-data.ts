@@ -273,6 +273,24 @@ export type PlanFeature = string;
 
 export type PlanId = "free" | "plus" | "premium";
 
+export type BillingInterval = "monthly" | "annual";
+
+export interface PlanIntervalPrice {
+  /** Valor por mês exibido (ex.: "R$ 19,90"). */
+  perMonth: string;
+  /** Sufixo ao lado do valor (ex.: "/mês"). */
+  suffix: string;
+  /** Linha auxiliar (anual): ex.: "Cobrado R$ 199/ano". */
+  billedLabel?: string;
+  /** Mensagem de economia (anual): ex.: "2 meses grátis". */
+  savingsLabel?: string;
+}
+
+export interface PlanPricing {
+  monthly: PlanIntervalPrice;
+  annual: PlanIntervalPrice;
+}
+
 export interface PricingPlan {
   id: PlanId;
   name: string;
@@ -282,6 +300,11 @@ export interface PricingPlan {
   features: PlanFeature[];
   highlighted?: boolean;
   badge?: string;
+  /**
+   * Preços por ciclo. Placeholder até o Stripe entrar — editar só aqui.
+   * Ausente no plano Gratuito (sempre "R$ 0").
+   */
+  pricing?: PlanPricing;
 }
 
 export const pricingPlans: PricingPlan[] = [
@@ -294,7 +317,7 @@ export const pricingPlans: PricingPlan[] = [
       "Dashboard básico",
       "Receitas e despesas",
       "Módulo Emprestei (até 5 pessoas)",
-      "Até 50 lançamentos por mês",
+      "Até 5 lançamentos por mês",
       "App mobile responsivo",
     ],
   },
@@ -303,6 +326,15 @@ export const pricingPlans: PricingPlan[] = [
     name: "Plus",
     price: "R$ 19,90",
     period: "/mês",
+    pricing: {
+      monthly: { perMonth: "R$ 19,90", suffix: "/mês" },
+      annual: {
+        perMonth: "R$ 16,58",
+        suffix: "/mês",
+        billedLabel: "Cobrado R$ 199/ano",
+        savingsLabel: "2 meses grátis",
+      },
+    },
     description: "Controle completo do seu mês a mês.",
     features: [
       "Tudo do Gratuito, sem limite de lançamentos",
@@ -319,6 +351,15 @@ export const pricingPlans: PricingPlan[] = [
     name: "Premium IA",
     price: "R$ 39,90",
     period: "/mês",
+    pricing: {
+      monthly: { perMonth: "R$ 39,90", suffix: "/mês" },
+      annual: {
+        perMonth: "R$ 33,25",
+        suffix: "/mês",
+        billedLabel: "Cobrado R$ 399/ano",
+        savingsLabel: "2 meses grátis",
+      },
+    },
     description: "Inteligência artificial olhando seus números todos os dias.",
     highlighted: true,
     badge: "Mais escolhido",
