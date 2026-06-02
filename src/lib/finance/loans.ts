@@ -185,7 +185,8 @@ export function calculateTotalDueNow(
   if (loan.remainingPrincipal <= 0) return 0;
 
   if (loan.paymentMode === "single") {
-    return Math.round((loan.remainingPrincipal + lateInterest) * 100) / 100;
+    const periodInterest = calculateSinglePeriodInterest(loan);
+    return Math.round((loan.remainingPrincipal + periodInterest + lateInterest) * 100) / 100;
   }
 
   return Math.round((monthlyDue + lateInterest) * 100) / 100;
@@ -199,6 +200,48 @@ export function calculateMonthlyInterest(
   return Math.round(remainingPrincipal * (interestRatePercent / 100) * 100) / 100;
 }
 
+/** Meses decorridos entre duas datas, com fração proporcional aos dias. */
+function elapsedMonths(start: Date, end: Date): number {
+  if (end <= start) return 0;
+  let whole =
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  let anchor = new Date(start.getFullYear(), start.getMonth() + whole, start.getDate());
+  if (anchor > end) {
+    whole -= 1;
+    anchor = new Date(start.getFullYear(), start.getMonth() + whole, start.getDate());
+  }
+  const nextAnchor = new Date(start.getFullYear(), start.getMonth() + whole + 1, start.getDate());
+  const frac = (end.getTime() - anchor.getTime()) / (nextAnchor.getTime() - anchor.getTime());
+  return Math.max(0, whole + frac);
+}
+
+function formatMonthsLabel(months: number): string {
+  const rounded = Math.round(months * 10) / 10;
+  const num = Number.isInteger(rounded)
+    ? String(rounded)
+    : rounded.toFixed(1).replace(".", ",");
+  return `${num} ${Math.abs(rounded - 1) < 0.05 ? "mês" : "meses"}`;
+}
+
+/**
+ * Juros do "Pagamento único": taxa mensal sobre o principal × meses até a quitação.
+ * O empréstimo é pago de uma vez na data prevista, somando principal + juros do período.
+ */
+export function calculateSinglePeriodInterest(
+  loan: Pick<
+    LoanRecord,
+    "paymentMode" | "principalAmount" | "interestRatePercent" | "startDate" | "expectedEndDate"
+  >,
+): number {
+  if (loan.paymentMode !== "single") return 0;
+  const monthly = calculateMonthlyInterest(loan.principalAmount, loan.interestRatePercent);
+  if (monthly <= 0) return 0;
+  const start = parseDate(loan.startDate);
+  const end = loan.expectedEndDate ? parseDate(loan.expectedEndDate) : null;
+  if (!start || !end || end < start) return 0;
+  return Math.round(monthly * elapsedMonths(start, end) * 100) / 100;
+}
+
 export function calculateMonthlyDue(loan: LoanRecord): number {
   if (loan.status === "paid" || loan.status === "cancelled") return 0;
   if (loan.remainingPrincipal <= 0) return 0;
@@ -209,7 +252,7 @@ export function calculateMonthlyDue(loan: LoanRecord): number {
     case "fixed_installments":
       return loan.installmentAmount ?? 0;
     case "single":
-      return loan.remainingPrincipal;
+      return Math.round((loan.remainingPrincipal + calculateSinglePeriodInterest(loan)) * 100) / 100;
     default:
       return 0;
   }
@@ -518,12 +561,43 @@ export function buildLoanPaymentSummary(
       };
     }
     case "single": {
-      const endLabel = options.expectedEndDate
-        ? formatDateBrFromIso(options.expectedEndDate)
-        : null;
+      const monthly = calculateMonthlyInterest(principalAmount, interestRatePercent);
+      const start = options.startDate ? parseDate(options.startDate) : null;
+      const end = options.expectedEndDate ? parseDate(options.expectedEndDate) : null;
+      const endLabel = end ? formatDateBr(end) : null;
+
+      if (monthly > 0 && start && end && end >= start) {
+        const months = elapsedMonths(start, end);
+        const totalInterest = Math.round(monthly * months * 100) / 100;
+        const totalToPay = Math.round((principalAmount + totalInterest) * 100) / 100;
+
+        return {
+          totalToPay,
+          principalAmount,
+          profit: totalInterest,
+          subtitle: `Pagamento único em ${endLabel} · ${formatMonthsLabel(months)} de juros`,
+          details: [
+            `Pegou emprestado ${brl(principalAmount)}`,
+            `Juros no período: ${brl(totalInterest)}`,
+          ],
+        };
+      }
+
+      if (monthly > 0) {
+        return {
+          totalToPay: principalAmount,
+          principalAmount,
+          profit: 0,
+          subtitle: "Pagamento único",
+          details: [
+            `Pegou emprestado ${brl(principalAmount)}`,
+            "Informe a data prevista de quitação para calcular o total com juros",
+          ],
+        };
+      }
+
       const details = [`Pegou emprestado ${brl(principalAmount)}`];
       if (endLabel) details.push(`Quitação em ${endLabel}`);
-
       return {
         totalToPay: principalAmount,
         principalAmount,

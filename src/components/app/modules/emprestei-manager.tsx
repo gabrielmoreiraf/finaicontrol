@@ -367,7 +367,7 @@ function LoanCard({
             </span>
           </div>
           <p className="text-2xl font-bold text-brand">
-            {loan.isOverdue && loan.lateInterest > 0
+            {loan.totalDueNow > loan.remainingPrincipal
               ? brl(loan.totalDueNow)
               : brl(loan.remainingPrincipal)}
           </p>
