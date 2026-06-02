@@ -131,7 +131,7 @@ export function IaAssistantView() {
                     key={s}
                     type="button"
                     onClick={() => sendMessage(s)}
-                    className="w-full rounded-xl border border-white/[0.06] px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-brand/25 hover:bg-brand/5 hover:text-foreground"
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-foreground dark:border-white/15 dark:bg-white/[0.07]"
                   >
                     {s}
                   </button>

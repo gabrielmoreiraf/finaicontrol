@@ -59,8 +59,8 @@ export function AiAssistantCard({ suggestions }: { suggestions: string[] }) {
                 type="button"
                 onClick={() => askAi(suggestion)}
                 className={cn(
-                  "rounded-full border border-border bg-muted/50 px-3.5 py-2 text-xs font-medium text-muted-foreground transition-all dark:border-white/[0.08] dark:bg-white/[0.03]",
-                  "hover:border-brand/30 hover:bg-brand/10 hover:text-foreground sm:text-sm",
+                  "rounded-full border border-border bg-muted px-3.5 py-2 text-xs font-medium text-muted-foreground transition-all dark:border-white/15 dark:bg-white/[0.07]",
+                  "hover:border-brand/40 hover:bg-brand/10 hover:text-foreground sm:text-sm",
                 )}
               >
                 {suggestion}
