@@ -36,9 +36,11 @@ export function StatCard({
 export function DataTable({
   columns,
   rows,
+  onRowClick,
 }: {
   columns: { key: string; label: string; align?: "left" | "right" }[];
   rows: Record<string, React.ReactNode>[];
+  onRowClick?: (index: number) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-sm dark:border-white/[0.06]">
@@ -62,7 +64,11 @@ export function DataTable({
           {rows.map((row, index) => (
             <tr
               key={index}
-              className="border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40 dark:border-white/[0.04] dark:hover:bg-white/[0.02]"
+              onClick={onRowClick ? () => onRowClick(index) : undefined}
+              className={cn(
+                "border-b border-border/60 transition-colors last:border-0 hover:bg-muted/40 dark:border-white/[0.04] dark:hover:bg-white/[0.02]",
+                onRowClick && "cursor-pointer",
+              )}
             >
               {columns.map((col) => (
                 <td

@@ -17,6 +17,7 @@ export const users = pgTable("users", {
   mode: text("mode").notNull().default("personal"),
   onboardingComplete: boolean("onboarding_complete").notNull().default(false),
   plan: text("plan"),
+  role: text("role").notNull().default("user"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

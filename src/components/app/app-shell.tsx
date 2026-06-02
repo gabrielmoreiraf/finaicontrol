@@ -21,6 +21,7 @@ export function AppShell({
   planLabel,
   planId = "free",
   planHighlighted = false,
+  isAdmin = false,
   notifications = [],
 }: {
   children: React.ReactNode;
@@ -29,11 +30,12 @@ export function AppShell({
   planLabel?: string;
   planId?: SubscriptionPlan;
   planHighlighted?: boolean;
+  isAdmin?: boolean;
   notifications?: AppNotification[];
 }) {
   return (
     <div className="app-shell relative flex h-dvh flex-col overflow-hidden bg-background">
-      <AppSidebar planId={planId} />
+      <AppSidebar planId={planId} isAdmin={isAdmin} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="relative shrink-0 border-b border-border bg-background/95 backdrop-blur-xl lg:hidden">
@@ -59,6 +61,7 @@ export function AppShell({
                 planLabel={planLabel}
                 planId={planId}
                 planHighlighted={planHighlighted}
+                isAdmin={isAdmin}
                 avatarOnly
                 className="ml-0.5"
               />
@@ -73,6 +76,7 @@ export function AppShell({
             planLabel={planLabel}
             planId={planId}
             planHighlighted={planHighlighted}
+            isAdmin={isAdmin}
             notifications={notifications}
           />
         </div>
@@ -88,7 +92,7 @@ export function AppShell({
         </ScrollArea>
       </div>
 
-      <MobileBottomNav planId={planId} />
+      <MobileBottomNav planId={planId} isAdmin={isAdmin} />
     </div>
   );
 }

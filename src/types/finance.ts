@@ -1,5 +1,7 @@
 export type UsageMode = "personal";
 
+export type UserRole = "user" | "admin";
+
 export type SubscriptionPlan = "free" | "plus" | "premium";
 
 export type IncomeType = "fixed" | "variable" | "extra" | "temporary";
@@ -62,6 +64,8 @@ export interface AuthUser {
   email: string;
   emailVerified: boolean;
   mode: UsageMode;
+  role: UserRole;
+  /** Plano efetivo para gating: admins recebem acesso premium. */
   plan: SubscriptionPlan | null;
   onboardingComplete: boolean;
   createdAt: string;

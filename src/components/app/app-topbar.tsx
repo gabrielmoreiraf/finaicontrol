@@ -13,6 +13,7 @@ type AppTopbarProps = {
   planLabel?: string;
   planId?: SubscriptionPlan;
   planHighlighted?: boolean;
+  isAdmin?: boolean;
   notifications?: AppNotification[];
   showGreeting?: boolean;
   greeting?: string;
@@ -25,6 +26,7 @@ export function AppTopbar({
   planLabel,
   planId = "free",
   planHighlighted = false,
+  isAdmin = false,
   notifications = [],
   showGreeting = false,
   greeting,
@@ -67,6 +69,7 @@ export function AppTopbar({
             planLabel={planLabel}
             planId={planId}
             planHighlighted={planHighlighted}
+            isAdmin={isAdmin}
             className="ml-1 hidden lg:flex"
           />
         </div>

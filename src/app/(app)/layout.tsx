@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       planLabel={getPlanLabel(user.plan)}
       planId={user.plan}
       planHighlighted={plan.highlighted}
+      isAdmin={user.role === "admin"}
       notifications={notifications}
     >
       {children}

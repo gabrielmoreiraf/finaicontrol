@@ -7,6 +7,7 @@ import {
   HelpCircle,
   LayoutGrid,
   MoreHorizontal,
+  ShieldCheck,
   Target,
   TrendingDown,
   TrendingUp,
@@ -58,7 +59,13 @@ function isMorePathActive(pathname: string) {
   );
 }
 
-export function MobileBottomNav({ planId = "free" }: { planId?: SubscriptionPlan }) {
+export function MobileBottomNav({
+  planId = "free",
+  isAdmin = false,
+}: {
+  planId?: SubscriptionPlan;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = isMorePathActive(pathname);
@@ -174,6 +181,22 @@ export function MobileBottomNav({ planId = "free" }: { planId?: SubscriptionPlan
                 </Link>
               );
             })}
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMoreOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-colors",
+                  pathname === "/admin" || pathname.startsWith("/admin/")
+                    ? "bg-violet-500/10 text-violet-600 dark:text-violet-300"
+                    : "text-foreground hover:bg-muted",
+                )}
+              >
+                <ShieldCheck className="size-5 shrink-0 text-violet-500" aria-hidden />
+                <span className="min-w-0 flex-1 truncate">Admin</span>
+              </Link>
+            )}
           </nav>
 
           <div className="mt-auto border-t border-border px-2 py-2">

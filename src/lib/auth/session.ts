@@ -6,7 +6,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { profiles, sessions, users } from "@/lib/db/schema";
 import { buildAvatarUrl } from "@/lib/avatar/process-upload";
-import type { AuthUser, SubscriptionPlan, UsageMode } from "@/types/finance";
+import type { AuthUser, SubscriptionPlan, UsageMode, UserRole } from "@/types/finance";
 
 const SESSION_COOKIE = "finia_session";
 const SESSION_TTL_DAYS = 30;
@@ -41,6 +41,7 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Aut
       emailVerified: users.emailVerified,
       mode: users.mode,
       plan: users.plan,
+      role: users.role,
       onboardingComplete: users.onboardingComplete,
       createdAt: users.createdAt,
       avatarWebp: profiles.avatarWebp,
@@ -56,13 +57,19 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Aut
   const row = rows[0];
   if (!row) return null;
 
+  const role = (row.role as UserRole) ?? "user";
+  const storedPlan = (row.plan as SubscriptionPlan | null) ?? null;
+  // Admin tem acesso premium completo (plano efetivo), independente do plano salvo.
+  const effectivePlan: SubscriptionPlan | null = role === "admin" ? "premium" : storedPlan;
+
   return {
     id: row.id,
     name: row.name,
     email: row.email,
     emailVerified: row.emailVerified,
     mode: row.mode as UsageMode,
-    plan: (row.plan as SubscriptionPlan | null) ?? null,
+    role,
+    plan: effectivePlan,
     onboardingComplete: row.onboardingComplete,
     createdAt: row.createdAt.toISOString(),
     avatarUrl:

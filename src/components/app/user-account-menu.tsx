@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, LogOut, Settings } from "lucide-react";
+import { ChevronDown, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { PlanBadge } from "@/components/app/plan-badge";
 import { UserAvatar } from "@/components/app/premium/user-avatar";
 import {
@@ -26,6 +26,7 @@ type UserAccountMenuProps = {
   compact?: boolean;
   /** Só avatar no gatilho, ideal para topbar mobile estreita */
   avatarOnly?: boolean;
+  isAdmin?: boolean;
 };
 
 export function UserAccountMenu({
@@ -37,6 +38,7 @@ export function UserAccountMenu({
   className,
   compact = false,
   avatarOnly = false,
+  isAdmin = false,
 }: UserAccountMenuProps) {
   const displayName = getUserShortName(userName);
 
@@ -73,6 +75,7 @@ export function UserAccountMenu({
                     label={planLabel}
                     planId={planId}
                     highlighted={planHighlighted}
+                    admin={isAdmin}
                     className="mt-1"
                   />
                 )}
@@ -95,10 +98,19 @@ export function UserAccountMenu({
                 label={planLabel}
                 planId={planId}
                 highlighted={planHighlighted}
+                admin={isAdmin}
                 className="mt-1.5"
               />
             )}
           </div>
+        )}
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer">
+              <ShieldCheck className="size-4 text-violet-500" aria-hidden />
+              Painel Admin
+            </Link>
+          </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
           <Link href="/configuracoes" className="cursor-pointer">

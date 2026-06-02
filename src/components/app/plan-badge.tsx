@@ -1,4 +1,4 @@
-import { Crown, Sparkles, Zap } from "lucide-react";
+import { Crown, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import type { SubscriptionPlan } from "@/types/finance";
 import { cn } from "@/lib/utils";
 
@@ -34,36 +34,46 @@ const SIZE_STYLES = {
   },
 } as const;
 
+const ADMIN_STYLE =
+  "border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/30 dark:bg-violet-500/15 dark:text-violet-200";
+
 export function PlanBadge({
   label,
   planId = "free",
   highlighted = false,
   size = "sm",
+  admin = false,
   className,
 }: {
   label: string;
   planId?: SubscriptionPlan;
   highlighted?: boolean;
   size?: keyof typeof SIZE_STYLES;
+  /** Conta master: mostra "Admin" com escudo, sem prefixo de plano. */
+  admin?: boolean;
   className?: string;
 }) {
   const styles = PLAN_STYLES[planId];
   const sizeStyles = SIZE_STYLES[size];
-  const Icon = highlighted && planId === "premium" ? Sparkles : styles.icon;
+  const Icon = admin
+    ? ShieldCheck
+    : highlighted && planId === "premium"
+      ? Sparkles
+      : styles.icon;
 
   return (
     <span
       className={cn(
         "inline-flex w-fit items-center font-semibold leading-tight tracking-wide",
         sizeStyles.badge,
-        styles.container,
+        admin ? ADMIN_STYLE : styles.container,
         size === "sm" && "self-start border",
         size === "lg" && "border-2",
         className,
       )}
     >
       <Icon className={cn(sizeStyles.icon, "shrink-0 opacity-90")} aria-hidden />
-      Plano {label}
+      {admin ? "Admin" : `Plano ${label}`}
     </span>
   );
 }
