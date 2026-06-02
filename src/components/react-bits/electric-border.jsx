@@ -227,8 +227,26 @@ const ElectricBorder = ({
     let { width, height } = updateSize();
     let lastDpr = Math.min(window.devicePixelRatio || 1, 2);
 
+    let ebVisible = true;
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const ebObserver = new IntersectionObserver(
+      ([entry]) => {
+        ebVisible = entry?.isIntersecting ?? true;
+      },
+      { rootMargin: "120px", threshold: 0 },
+    );
+    ebObserver.observe(container);
+
     const drawElectricBorder = (currentTime) => {
+      animationRef.current = requestAnimationFrame(drawElectricBorder);
       if (!canvas || !ctx) return;
+
+      // Pausa o cálculo/desenho quando fora da tela, aba oculta ou reduced-motion.
+      // As camadas CSS (eb-solid-stroke/glow) mantêm a borda visível, só sem a animação.
+      if (!ebVisible || document.hidden || prefersReduced.matches) {
+        lastFrameTimeRef.current = currentTime;
+        return;
+      }
 
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       if (dpr !== lastDpr) {
@@ -313,8 +331,6 @@ const ElectricBorder = ({
 
       ctx.closePath();
       ctx.stroke();
-
-      animationRef.current = requestAnimationFrame(drawElectricBorder);
     };
 
     const resizeObserver = new ResizeObserver(() => {
@@ -331,6 +347,7 @@ const ElectricBorder = ({
         cancelAnimationFrame(animationRef.current);
       }
       resizeObserver.disconnect();
+      ebObserver.disconnect();
     };
   }, [animated, color, speed, chaos, borderRadius, octavedNoise, getRoundedRectPoint]);
 

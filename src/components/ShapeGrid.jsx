@@ -207,11 +207,19 @@ const ShapeGrid = ({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     };
 
-    const updateAnimation = () => {
+    // Fundo sutil (88% coberto): ~30fps já é imperceptível e corta ~metade do
+    // custo de CPU. Normalizamos o passo pelo tempo p/ manter a MESMA velocidade.
+    const FRAME_INTERVAL = 1000 / 30;
+    let lastFrame = 0;
+
+    const updateAnimation = now => {
       requestRef.current = requestAnimationFrame(updateAnimation);
       if (!activeRef.current) return;
+      if (now - lastFrame < FRAME_INTERVAL) return;
+      const step = lastFrame ? (now - lastFrame) / (1000 / 60) : 1;
+      lastFrame = now;
 
-      const effectiveSpeed = Math.max(speed, 0.1);
+      const effectiveSpeed = Math.max(speed, 0.1) * step;
       const wrapX = isHex ? hexHoriz * 2 : squareSize;
       const wrapY = isHex ? hexVert : isTri ? squareSize * 2 : squareSize;
 
