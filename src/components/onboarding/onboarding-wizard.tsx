@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { completeOnboardingAction } from "@/lib/actions/onboarding";
@@ -19,12 +20,9 @@ export function OnboardingWizard() {
 
       <div className="mt-6 space-y-2">
         <Label htmlFor="fixedMonthlyIncome">Renda fixa mensal (opcional)</Label>
-        <Input
+        <CurrencyInput
           id="fixedMonthlyIncome"
           name="fixedMonthlyIncome"
-          type="number"
-          min={0}
-          step="0.01"
           placeholder="R$ 0,00"
         />
         <p className="text-xs text-muted-foreground">
