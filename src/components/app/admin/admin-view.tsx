@@ -107,11 +107,12 @@ export function AdminView({
         description="Visão geral dos clientes cadastrados no FinIA Control."
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Clientes" value={String(overview.total)} />
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-7">
+        <StatCard label="Clientes" value={String(overview.total - overview.staff)} />
         <StatCard label="Gratuito" value={String(overview.free)} />
         <StatCard label="Plus" value={String(overview.plus)} />
         <StatCard label="Premium IA" value={String(overview.premium)} />
+        <StatCard label="Equipe" value={String(overview.staff)} />
         <StatCard label="Verificados" value={String(overview.verified)} />
         <StatCard label="Onboarding" value={String(overview.onboarded)} />
       </div>

@@ -68,13 +68,15 @@ function CustomerDetailForm({
   const [isPending, startTransition] = useTransition();
   const [plan, setPlan] = useState<SubscriptionPlan>(customer.plan ?? "free");
   const [isAdminRole, setIsAdminRole] = useState(customer.role === "admin");
+  const [loansEnabled, setLoansEnabled] = useState(customer.loansEnabled);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isSelf = customer.id === currentAdminId;
   const nextRole = isAdminRole ? "admin" : "user";
   const planChanged = plan !== (customer.plan ?? "free");
   const roleChanged = nextRole !== customer.role;
-  const hasChanges = planChanged || roleChanged;
+  const loansChanged = loansEnabled !== customer.loansEnabled;
+  const hasChanges = planChanged || roleChanged || loansChanged;
 
   function save() {
     setConfirmOpen(false);
@@ -82,6 +84,7 @@ function CustomerDetailForm({
     formData.set("userId", customer.id);
     formData.set("plan", plan);
     formData.set("role", nextRole);
+    formData.set("loansEnabled", String(loansEnabled));
 
     startTransition(async () => {
       const result = await updateCustomerAccessAction(formData);
@@ -197,6 +200,21 @@ function CustomerDetailForm({
               {isSelf
                 ? "Você não pode remover seu próprio acesso admin."
                 : "Libera o painel admin e todas as funcionalidades."}
+            </span>
+          </span>
+        </label>
+
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 dark:border-white/[0.06]">
+          <Checkbox
+            checked={loansEnabled}
+            onCheckedChange={(checked) => setLoansEnabled(checked === true)}
+            className="mt-0.5"
+          />
+          <span className="text-sm">
+            <span className="font-medium">Liberar módulo Emprestei</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Recurso oculto por padrão. Marque para liberar empréstimos a pessoas
+              para este cliente.
             </span>
           </span>
         </label>

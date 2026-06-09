@@ -1,17 +1,21 @@
 import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { DividasView } from "@/components/app/modules/dividas-view";
-import { PlanGate } from "@/components/app/plan-gate";
+import { PlanLockedScreen } from "@/components/app/plan-locked-screen";
 import { ResourceManager, type ResourceItem } from "@/components/app/resource-manager";
 import { createDebt, deleteDebt, updateDebt } from "@/lib/actions/debts";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { debts } from "@/lib/db/schema";
 import { debtPriority } from "@/lib/finance/dividas";
+import { hasPlanAccess } from "@/lib/plans/features";
 
 export default async function DividasPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (!hasPlanAccess(user.plan!, "debts")) {
+    return <PlanLockedScreen feature="debts" planId={user.plan!} />;
+  }
 
   const rows = await db
     .select()
@@ -39,11 +43,10 @@ export default async function DividasPage() {
   }));
 
   return (
-    <PlanGate feature="debts" planId={user.plan!} fullPage>
-      <div className="space-y-10">
-        <DividasView items={items} />
-        <div id="cadastro-dividas">
-          <ResourceManager
+    <div className="space-y-10">
+      <DividasView items={items} />
+      <div id="cadastro-dividas">
+        <ResourceManager
           embedded
           createLabel="Adicionar dívida"
           title="Gerenciar dívidas"
@@ -62,6 +65,5 @@ export default async function DividasPage() {
         />
       </div>
     </div>
-    </PlanGate>
   );
 }

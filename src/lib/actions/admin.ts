@@ -19,6 +19,7 @@ export async function updateCustomerAccessAction(
   const userId = String(formData.get("userId") ?? "");
   const plan = String(formData.get("plan") ?? "");
   const role = String(formData.get("role") ?? "");
+  const loansEnabled = String(formData.get("loansEnabled") ?? "") === "true";
 
   if (!userId) return actionError("Cliente inválido.");
   if (!PLANS.includes(plan as SubscriptionPlan)) return actionError("Plano inválido.");
@@ -31,7 +32,7 @@ export async function updateCustomerAccessAction(
 
   await db
     .update(users)
-    .set({ plan, role })
+    .set({ plan, role, loansEnabled })
     .where(eq(users.id, userId));
 
   revalidatePath("/admin");

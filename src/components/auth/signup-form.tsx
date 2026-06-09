@@ -54,6 +54,8 @@ export function SignupForm() {
 
       {state.error && (
         <p
+          role="alert"
+          aria-live="assertive"
           className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300"
           style={{ fontSize: "0.9em", padding: "0.5em 0.75em" }}
         >

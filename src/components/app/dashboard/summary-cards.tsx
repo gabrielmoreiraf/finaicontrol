@@ -22,7 +22,7 @@ export function SummaryCards({
   const offset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div className="grid gap-3 max-sm:grid-cols-1 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
+    <div className="grid gap-3 max-sm:grid-cols-1 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5">
       {items.map((item) => {
         const Icon = iconMap[item.icon];
         return (

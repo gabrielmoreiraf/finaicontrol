@@ -2,11 +2,18 @@ import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { profiles } from "@/lib/db/schema";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ userId: string }> },
 ) {
+  // M7: avatares não são mais públicos — exige sessão válida.
+  const viewer = await getCurrentUser();
+  if (!viewer) {
+    return new NextResponse(null, { status: 401 });
+  }
+
   const { userId } = await context.params;
 
   const [profile] = await db

@@ -1,39 +1,19 @@
-"use client";
-
-import { useState } from "react";
 import { EmptyState } from "@/components/app/premium/empty-state";
-import { FilterTabs } from "@/components/app/premium/filter-tabs";
 import { PageHeader } from "@/components/app/premium/page-header";
-import { DataTable, StatCard } from "@/components/app/premium/data-table";
+import { StatCard } from "@/components/app/premium/data-table";
 import { PremiumCard } from "@/components/app/premium/premium-card";
 import { EMPTY_DISPLAY } from "@/lib/empty-display";
-import { brl, EXPENSE_TYPE_LABELS } from "@/lib/finance/format";
-import type { DespesaCategory, DespesaRow, DespesaUpcoming } from "@/lib/finance/despesas";
+import { brl } from "@/lib/finance/format";
+import type { ExpenseSummary } from "@/lib/finance/summary";
 
 type DespesasViewProps = {
-  items: DespesaRow[];
-  upcoming: DespesaUpcoming[];
-  categories: DespesaCategory[];
+  summary: ExpenseSummary;
   debtPayments: number;
 };
 
-export function DespesasView({ items, upcoming, categories, debtPayments }: DespesasViewProps) {
-  const [filter, setFilter] = useState("all");
-
-  const expenseTotal = items.reduce((sum, item) => sum + item.amount, 0);
+export function DespesasView({ summary, debtPayments }: DespesasViewProps) {
+  const { byType, total: expenseTotal, categories, upcoming } = summary;
   const total = expenseTotal + debtPayments;
-  const byType = (type: string) =>
-    items.filter((item) => item.type === type).reduce((sum, item) => sum + item.amount, 0);
-
-  const filterTabs = [
-    { id: "all", label: "Todas", count: items.length },
-    { id: "fixed", label: "Fixas", count: items.filter((i) => i.type === "fixed").length },
-    { id: "variable", label: "Variáveis", count: items.filter((i) => i.type === "variable").length },
-    { id: "installment", label: "Parceladas", count: items.filter((i) => i.type === "installment").length },
-  ];
-
-  const filtered =
-    filter === "all" ? items : items.filter((item) => item.type === filter);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -42,16 +22,21 @@ export function DespesasView({ items, upcoming, categories, debtPayments }: Desp
         description="Controle fixas, variáveis e parceladas com visão clara dos próximos vencimentos."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total do mês"
           value={brl(total)}
           change={debtPayments > 0 ? "inclui parcelas de dívidas" : EMPTY_DISPLAY}
-          trend={total > 0 ? "down" : "neutral"}
+          trend={total > 0 ? "negative" : "neutral"}
         />
-        <StatCard label="Fixas" value={brl(byType("fixed"))} change={EMPTY_DISPLAY} trend="neutral" />
-        <StatCard label="Variáveis" value={brl(byType("variable"))} change={EMPTY_DISPLAY} trend="neutral" />
-        <StatCard label="Parceladas" value={brl(byType("installment") + debtPayments)} change={EMPTY_DISPLAY} trend="neutral" />
+        <StatCard label="Fixas" value={brl(byType.fixed.total)} change={EMPTY_DISPLAY} trend="neutral" />
+        <StatCard label="Variáveis" value={brl(byType.variable.total)} change={EMPTY_DISPLAY} trend="neutral" />
+        <StatCard
+          label="Parceladas"
+          value={brl(byType.installment.total + debtPayments)}
+          change={EMPTY_DISPLAY}
+          trend="neutral"
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -61,7 +46,7 @@ export function DespesasView({ items, upcoming, categories, debtPayments }: Desp
             {upcoming.length === 0 ? (
               <EmptyState
                 title="Nenhum vencimento previsto"
-                description="Cadastre despesas com dia do mês para ver os próximos vencimentos."
+                description="Cadastre despesas fixas com dia do mês para ver os próximos vencimentos."
               />
             ) : (
               <ul className="space-y-3">
@@ -111,35 +96,6 @@ export function DespesasView({ items, upcoming, categories, debtPayments }: Desp
           </div>
         </PremiumCard>
       </div>
-
-      <div className="space-y-4">
-        <FilterTabs tabs={filterTabs} active={filter} onChange={setFilter} />
-        {filtered.length === 0 ? (
-          <EmptyState title="Nenhuma despesa neste filtro" description="Use o formulário abaixo para cadastrar." />
-        ) : (
-          <DataTable
-            columns={[
-              { key: "name", label: "Descrição" },
-              { key: "type", label: "Tipo" },
-              { key: "category", label: "Categoria" },
-              { key: "date", label: "Vencimento" },
-              { key: "amount", label: "Valor", align: "right" },
-            ]}
-            rows={filtered.map((item) => ({
-              name: item.name,
-              type: (
-                <span className="rounded-md bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand">
-                  {EXPENSE_TYPE_LABELS[item.type] ?? item.type}
-                </span>
-              ),
-              category: item.category || EMPTY_DISPLAY,
-              date: item.dayOfMonth ?? EMPTY_DISPLAY,
-              amount: brl(item.amount),
-            }))}
-          />
-        )}
-      </div>
     </div>
   );
 }
-

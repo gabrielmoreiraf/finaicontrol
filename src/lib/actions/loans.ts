@@ -8,7 +8,7 @@ import { loanPayments, loans } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/result";
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
-import { assertCanCreateLoanBorrower, assertPlanFeatureAccess } from "@/lib/plans/guard";
+import { assertLoansEnabled } from "@/lib/plans/guard";
 import {
   validateFixedInstallmentAmount,
   type LoanPaymentMode,
@@ -122,11 +122,8 @@ export async function createLoan(formData: FormData): Promise<ActionResult> {
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const accessError = await assertPlanFeatureAccess(user.plan, "loans");
+  const accessError = assertLoansEnabled(user.loansEnabled);
   if (accessError) return accessError;
-
-  const limitError = await assertCanCreateLoanBorrower(user.id, user.plan);
-  if (limitError) return limitError;
 
   const values = parseLoanValues(formData);
   const validationError = validateLoan(values);
@@ -142,7 +139,7 @@ export async function updateLoan(formData: FormData): Promise<ActionResult> {
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const accessError = await assertPlanFeatureAccess(user.plan, "loans");
+  const accessError = assertLoansEnabled(user.loansEnabled);
   if (accessError) return accessError;
 
   const id = String(formData.get("id") ?? "");
@@ -184,7 +181,7 @@ export async function deleteLoan(formData: FormData): Promise<ActionResult> {
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const accessError = await assertPlanFeatureAccess(user.plan, "loans");
+  const accessError = assertLoansEnabled(user.loansEnabled);
   if (accessError) return accessError;
 
   const id = String(formData.get("id") ?? "");
@@ -200,7 +197,7 @@ export async function registerLoanPayment(formData: FormData): Promise<ActionRes
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const accessError = await assertPlanFeatureAccess(user.plan, "loans");
+  const accessError = assertLoansEnabled(user.loansEnabled);
   if (accessError) return accessError;
 
   const loanId = String(formData.get("loanId") ?? "");

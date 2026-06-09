@@ -62,13 +62,18 @@ function isMorePathActive(pathname: string) {
 export function MobileBottomNav({
   planId = "free",
   isAdmin = false,
+  loansEnabled = false,
 }: {
   planId?: SubscriptionPlan;
   isAdmin?: boolean;
+  loansEnabled?: boolean;
 }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreActive = isMorePathActive(pathname);
+  const moreLinks = MOBILE_MORE_LINKS.filter(
+    (link) => link.href !== "/emprestei" || loansEnabled,
+  );
 
   return (
     <>
@@ -86,6 +91,7 @@ export function MobileBottomNav({
               <Link
                 key={href}
                 href={href}
+                prefetch={false}
                 className={cn(
                   "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-0.5 py-1 text-[0.625rem] font-medium leading-tight transition-colors sm:gap-1 sm:rounded-xl sm:px-1 sm:py-1.5 sm:text-[0.6875rem]",
                   active ? "text-brand" : "text-muted-foreground",
@@ -136,7 +142,7 @@ export function MobileBottomNav({
           </SheetHeader>
 
           <nav className="overflow-y-auto px-2 py-2" aria-label="Mais opções">
-            {MOBILE_MORE_LINKS.map(({ href, label, shortLabel, icon: Icon, feature }) => {
+            {moreLinks.map(({ href, label, shortLabel, icon: Icon, feature }) => {
               const active =
                 pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
               const locked = !hasPlanAccess(planId, feature);
@@ -148,6 +154,7 @@ export function MobileBottomNav({
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   onClick={() => setMoreOpen(false)}
                   title={limited ? (limitedHint ?? undefined) : undefined}
                   className={cn(

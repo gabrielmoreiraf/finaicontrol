@@ -5,7 +5,6 @@ import {
   Bot,
   Calendar,
   CreditCard,
-  HandCoins,
   Layers3,
   LineChart,
   MessageCircle,
@@ -26,7 +25,6 @@ import { SUPPORT_WHATSAPP_URL } from "@/lib/brand";
 export const navLinks = [
   { label: "Como funciona", href: "#como-funciona" },
   { label: "Recursos", href: "#recursos" },
-  { label: "IA Financeira", href: "#ia-financeira" },
   { label: "Planos", href: "#planos" },
 ];
 
@@ -94,7 +92,7 @@ export const howItWorksSteps = [
     icon: Layers3,
     title: "Organize seu mês",
     description:
-      "Cadastre receitas, despesas, dívidas, metas e empréstimos feitos a outras pessoas no módulo Emprestei.",
+      "Cadastre receitas, despesas, dívidas e metas em um só lugar, com tipos e datas que refletem sua realidade.",
     spotlightColor: "rgba(16, 185, 129, 0.15)" as const,
   },
   {
@@ -122,7 +120,6 @@ export const dashboardFeatures = [
   { icon: CreditCard, label: "Despesas" },
   { icon: AlertTriangle, label: "Dívidas" },
   { icon: Target, label: "Metas" },
-  { icon: HandCoins, label: "Emprestei" },
   { icon: LineChart, label: "Investimentos" },
   { icon: PiggyBank, label: "Saldo previsto" },
   { icon: BarChart3, label: "Relatórios" },
@@ -153,13 +150,6 @@ export const productModules: ProductModule[] = [
     plan: "Gratuito",
   },
   {
-    icon: HandCoins,
-    title: "Emprestei",
-    description:
-      "Controle empréstimos a pessoas com juros mensais, parcelas fixas ou pagamento único. Registre pagamentos recebidos.",
-    plan: "Gratuito · Premium ilimitado",
-  },
-  {
     icon: AlertTriangle,
     title: "Dívidas",
     description:
@@ -179,6 +169,13 @@ export const productModules: ProductModule[] = [
     description:
       "Centralize aplicações e acompanhe a evolução do que você já construiu.",
     plan: "Plus",
+  },
+  {
+    icon: Sparkles,
+    title: "Dashboard inteligente",
+    description:
+      "Saldo projetado, próximos vencimentos, alertas e saúde financeira numa só tela — com base nos seus dados reais.",
+    plan: "Gratuito",
   },
 ];
 
@@ -316,7 +313,6 @@ export const pricingPlans: PricingPlan[] = [
     features: [
       "Dashboard básico",
       "Receitas e despesas",
-      "Módulo Emprestei (até 5 pessoas)",
       "Até 5 lançamentos por mês",
       "App mobile responsivo",
     ],
@@ -367,7 +363,6 @@ export const pricingPlans: PricingPlan[] = [
       "Tudo do Plus",
       "Assistente com IA",
       "Alertas inteligentes",
-      "Emprestei ilimitado",
       "Simulação de compras",
       "Plano para quitar dívidas",
       "Suporte prioritário via WhatsApp",
@@ -380,7 +375,6 @@ export const footerLinks: Array<
 > = [
   { label: "Como funciona", href: "#como-funciona" },
   { label: "Recursos", href: "#recursos" },
-  { label: "IA Financeira", href: "#ia-financeira" },
   { label: "Planos", href: "#planos" },
   { label: "Suporte WhatsApp", href: SUPPORT_WHATSAPP_URL, external: true },
   { label: "Começar agora", href: "/cadastro" },
@@ -434,7 +428,7 @@ export const dashboardMockStats = [
   { label: "Receitas", value: "R$ 6.200", change: "+8%", icon: TrendingUp },
   { label: "Despesas", value: "R$ 4.353", change: "-3%", icon: TrendingDown },
   { label: "Saldo previsto", value: "R$ 1.847", change: "+15%", icon: PiggyBank },
-  { label: "Emprestei ativo", value: "R$ 2.400", change: "3 pessoas", icon: HandCoins },
+  { label: "Metas", value: "R$ 2.400", change: "2 ativas", icon: Target },
 ];
 
 export interface IncomeField {

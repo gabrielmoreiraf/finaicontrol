@@ -22,6 +22,7 @@ export function AppShell({
   planId = "free",
   planHighlighted = false,
   isAdmin = false,
+  loansEnabled = false,
   notifications = [],
 }: {
   children: React.ReactNode;
@@ -31,11 +32,12 @@ export function AppShell({
   planId?: SubscriptionPlan;
   planHighlighted?: boolean;
   isAdmin?: boolean;
+  loansEnabled?: boolean;
   notifications?: AppNotification[];
 }) {
   return (
     <div className="app-shell relative flex h-dvh flex-col overflow-hidden bg-background">
-      <AppSidebar planId={planId} isAdmin={isAdmin} />
+      <AppSidebar planId={planId} isAdmin={isAdmin} loansEnabled={loansEnabled} />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <header className="relative shrink-0 border-b border-border bg-background/95 backdrop-blur-xl lg:hidden">
@@ -92,7 +94,7 @@ export function AppShell({
         </ScrollArea>
       </div>
 
-      <MobileBottomNav planId={planId} isAdmin={isAdmin} />
+      <MobileBottomNav planId={planId} isAdmin={isAdmin} loansEnabled={loansEnabled} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
-import { Button } from "@/components/ui/button";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OnboardingSubmit } from "@/components/onboarding/onboarding-submit";
 import { completeOnboardingAction } from "@/lib/actions/onboarding";
 
 export function OnboardingWizard() {
@@ -30,9 +30,7 @@ export function OnboardingWizard() {
         </p>
       </div>
 
-      <Button type="submit" className="btn-brand mt-10 w-full" size="lg">
-        Ir para o dashboard
-      </Button>
+      <OnboardingSubmit />
     </form>
   );
 }

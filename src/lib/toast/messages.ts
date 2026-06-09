@@ -5,6 +5,7 @@ export const TOAST_URL_KEYS = {
   emailVerified: "email-verified",
   onboarding: "onboarding",
   planSelected: "plan-selected",
+  passwordReset: "password-reset",
 } as const;
 
 export type ToastUrlKey = (typeof TOAST_URL_KEYS)[keyof typeof TOAST_URL_KEYS];
@@ -37,6 +38,10 @@ export const TOAST_URL_MESSAGES: Record<
     title: "Plano selecionado!",
     description: "Continue a configuração da sua conta.",
   },
+  [TOAST_URL_KEYS.passwordReset]: {
+    title: "Senha redefinida!",
+    description: "Use a nova senha para entrar na sua conta.",
+  },
 };
 
 export const TOAST_MESSAGES = {
@@ -63,6 +68,8 @@ export const TOAST_MESSAGES = {
     updated: "Meta atualizada com sucesso.",
     deleted: "Meta removida com sucesso.",
     validation: "Informe o nome da meta.",
+    completed: "Meta concluída! Parabéns 🎉",
+    reopened: "Meta reaberta.",
   },
   loan: {
     created: "Empréstimo cadastrado com sucesso.",

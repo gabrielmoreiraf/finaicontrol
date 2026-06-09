@@ -10,7 +10,7 @@ export function StatCard({
   label: string;
   value: string;
   change?: string;
-  trend?: "up" | "down" | "neutral";
+  trend?: "up" | "down" | "neutral" | "negative";
   className?: string;
 }) {
   return (
@@ -23,6 +23,7 @@ export function StatCard({
             "mt-1.5 text-xs font-medium",
             trend === "up" && "text-brand",
             trend === "down" && "text-emerald-600 dark:text-emerald-400",
+            trend === "negative" && "text-amber-700 dark:text-amber-400",
             trend === "neutral" && "text-muted-foreground",
           )}
         >

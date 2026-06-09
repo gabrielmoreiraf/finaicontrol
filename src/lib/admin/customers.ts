@@ -22,6 +22,7 @@ export interface AdminCustomer {
   fixedMonthlyIncome: number;
   hasVariableIncome: boolean;
   hasExtraIncome: boolean;
+  loansEnabled: boolean;
 }
 
 export interface AdminOverview {
@@ -29,6 +30,7 @@ export interface AdminOverview {
   free: number;
   plus: number;
   premium: number;
+  staff: number;
   verified: number;
   onboarded: number;
 }
@@ -42,17 +44,20 @@ export async function requireAdmin() {
 }
 
 function buildOverview(customers: AdminCustomer[]): AdminOverview {
+  // Admins têm plano "premium" sintético (por role, não assinatura). Para não
+  // distorcer a distribuição de planos, eles entram em "Equipe", não em free/plus/premium.
   return customers.reduce<AdminOverview>(
     (acc, c) => {
       acc.total += 1;
-      if (c.plan === "plus") acc.plus += 1;
+      if (c.role === "admin") acc.staff += 1;
+      else if (c.plan === "plus") acc.plus += 1;
       else if (c.plan === "premium") acc.premium += 1;
       else acc.free += 1;
       if (c.emailVerified) acc.verified += 1;
       if (c.onboardingComplete) acc.onboarded += 1;
       return acc;
     },
-    { total: 0, free: 0, plus: 0, premium: 0, verified: 0, onboarded: 0 },
+    { total: 0, free: 0, plus: 0, premium: 0, staff: 0, verified: 0, onboarded: 0 },
   );
 }
 
@@ -67,6 +72,7 @@ export async function getAdminData(): Promise<{
       email: users.email,
       plan: users.plan,
       role: users.role,
+      loansEnabled: users.loansEnabled,
       emailVerified: users.emailVerified,
       onboardingComplete: users.onboardingComplete,
       createdAt: users.createdAt,
@@ -94,6 +100,7 @@ export async function getAdminData(): Promise<{
     fixedMonthlyIncome: Number(r.fixedMonthlyIncome ?? 0),
     hasVariableIncome: r.hasVariableIncome ?? false,
     hasExtraIncome: r.hasExtraIncome ?? false,
+    loansEnabled: r.loansEnabled ?? false,
   }));
 
   return { customers, overview: buildOverview(customers) };

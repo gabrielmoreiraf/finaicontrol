@@ -9,6 +9,11 @@ import { getPostAuthPath } from "@/lib/auth/post-auth-redirect";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { getEmailValidationError, normalizeEmail } from "@/lib/auth/validate-email";
 import { createEmailVerificationToken } from "@/lib/auth/verification-token";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsMessage,
+} from "@/lib/auth/rate-limit";
 import { sendVerificationEmail } from "@/lib/email/send-verification-email";
 import { TOAST_URL_KEYS } from "@/lib/toast/messages";
 import type { SubscriptionPlan } from "@/types/finance";
@@ -27,6 +32,12 @@ export async function signUpAction(
   const name = String(formData.get("name") ?? "").trim();
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
+
+  const ip = await getClientIp();
+  const limit = checkRateLimit(`signup:${ip}`, { max: 5, windowMs: 60_000 });
+  if (!limit.allowed) {
+    return { error: tooManyRequestsMessage(limit.retryAfterSeconds) };
+  }
 
   if (!name || !email || !password) {
     return { error: "Preencha nome, e-mail e senha." };
@@ -87,6 +98,12 @@ export async function signInAction(
 ): Promise<AuthState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
   const password = String(formData.get("password") ?? "");
+
+  const ip = await getClientIp();
+  const limit = checkRateLimit(`login:${ip}:${email}`, { max: 5, windowMs: 60_000 });
+  if (!limit.allowed) {
+    return { error: tooManyRequestsMessage(limit.retryAfterSeconds) };
+  }
 
   if (!email || !password) {
     return { error: "Informe e-mail e senha." };

@@ -3,7 +3,7 @@ import { cache } from "react";
 import { EMPTY_DISPLAY } from "@/lib/empty-display";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { debts, expenses, goals, loanPayments, loans } from "@/lib/db/schema";
+import { debts, goals, loanPayments, loans } from "@/lib/db/schema";
 import {
   getCachedExpenses,
   getCachedIncomes,
@@ -350,15 +350,83 @@ function buildTemporaryIncomes(
     .sort((a, b) => a.monthsLeft - b.monthsLeft);
 }
 
-function buildProjection(monthlyIncome: number, monthlyExpenses: number, balance: number): DashboardProjectionPoint[] {
+function monthIndexOf(date: Date): number {
+  return date.getFullYear() * 12 + date.getMonth();
+}
+
+function parseMonthIndex(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+/**
+ * Projeção mês a mês (6 meses) que respeita o que TERMINA ao longo do tempo:
+ * - rendas temporárias deixam de contar após a data de término;
+ * - despesas parceladas contam só dentro da janela de parcelas;
+ * - dívidas deixam de contar após serem quitadas (saldo / parcela mensal).
+ * O `saldo` é o acumulado projetado (soma dos saldos mensais líquidos).
+ */
+function buildProjection(
+  fixedIncome: number,
+  incomeRows: { amount: string; type: string; endDate: string | null }[],
+  expenseRows: {
+    amount: string;
+    type: string;
+    installmentCount: number | null;
+    paymentStartDate: string | null;
+  }[],
+  debtRows: { balance: string; monthlyPayment: string }[],
+): DashboardProjectionPoint[] {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, index) => {
-    const monthDate = new Date(now.getFullYear(), now.getMonth() + index, 1);
+  const baseIndex = monthIndexOf(now);
+
+  const debtPlans = debtRows.map((d) => {
+    const balance = Number(d.balance);
+    const pay = Number(d.monthlyPayment);
+    return { pay, months: pay > 0 ? Math.ceil(balance / pay) : Number.POSITIVE_INFINITY };
+  });
+
+  let cumulative = 0;
+  return Array.from({ length: 6 }, (_, i) => {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const idx = baseIndex + i;
+
+    let receitas = fixedIncome;
+    for (const row of incomeRows) {
+      const amount = Number(row.amount);
+      if (amount <= 0) continue;
+      if (row.type === "temporary") {
+        const endIdx = parseMonthIndex(row.endDate);
+        if (endIdx !== null && idx > endIdx) continue;
+      }
+      receitas += amount;
+    }
+
+    let despesas = 0;
+    for (const row of expenseRows) {
+      const amount = Number(row.amount);
+      if (amount <= 0) continue;
+      if (row.type === "installment") {
+        const startIdx = parseMonthIndex(row.paymentStartDate);
+        const count = row.installmentCount ?? 0;
+        if (startIdx !== null && count > 0 && (idx < startIdx || idx > startIdx + count - 1)) {
+          continue;
+        }
+      }
+      despesas += amount;
+    }
+    for (const plan of debtPlans) {
+      if (i < plan.months) despesas += plan.pay;
+    }
+
+    cumulative += receitas - despesas;
     return {
       month: MONTH_LABELS[monthDate.getMonth()] ?? EMPTY_DISPLAY,
-      receitas: monthlyIncome,
-      despesas: monthlyExpenses,
-      saldo: balance * (index + 1),
+      receitas,
+      despesas,
+      saldo: cumulative,
     };
   });
 }
@@ -487,7 +555,7 @@ export const getDashboardData = cache(async function getDashboardData(
   const upcomingIncome = buildUpcomingIncome(fixedIncome, incomeRows, loanIncome);
   const upcomingBills = buildUpcomingBills(expenseRows);
   const temporaryIncomes = buildTemporaryIncomes(incomeRows);
-  const projection = buildProjection(monthlyIncome, monthlyExpenses, balance);
+  const projection = buildProjection(fixedIncome, incomeRows, expenseRows, debtRows);
 
   const projectionMonths = projection.map((point) => ({
     month: point.month,

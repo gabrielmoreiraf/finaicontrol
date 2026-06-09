@@ -71,4 +71,6 @@ export interface AuthUser {
   createdAt: string;
   avatarUrl: string | null;
   fixedMonthlyIncome: number;
+  /** Entitlement do módulo "Emprestei" liberado individualmente pelo admin. */
+  loansEnabled: boolean;
 }
