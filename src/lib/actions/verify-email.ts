@@ -9,6 +9,11 @@ import {
   getLatestVerificationTokenForEmail,
 } from "@/lib/auth/verification-token";
 import { sendVerificationEmail } from "@/lib/email/send-verification-email";
+import {
+  checkRateLimit,
+  getClientIp,
+  tooManyRequestsMessage,
+} from "@/lib/auth/rate-limit";
 
 export type VerifyEmailState = { error?: string; success?: string };
 
@@ -17,6 +22,12 @@ export async function resendVerificationEmailAction(
   formData: FormData,
 ): Promise<VerifyEmailState> {
   const email = normalizeEmail(String(formData.get("email") ?? ""));
+
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`resend:${ip}:${email}`, { max: 3, windowMs: 5 * 60_000 });
+  if (!limit.allowed) {
+    return { error: tooManyRequestsMessage(limit.retryAfterSeconds) };
+  }
 
   const validationError = getEmailValidationError(email);
   if (validationError) {

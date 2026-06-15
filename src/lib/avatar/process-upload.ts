@@ -22,10 +22,20 @@ export function validateAvatarFile(file: File): string | null {
   return null;
 }
 
+const ALLOWED_SHARP_FORMATS = new Set(["jpeg", "png", "webp"]);
+
 export async function convertAvatarToWebp(file: File): Promise<Buffer> {
   const input = Buffer.from(await file.arrayBuffer());
 
-  return sharp(input)
+  // M4: limita os pixels (anti decompression bomb) e valida o formato REAL da
+  // imagem via metadata do sharp — não confia no MIME enviado pelo cliente.
+  const image = sharp(input, { limitInputPixels: 24_000_000, failOn: "error" });
+  const { format } = await image.metadata();
+  if (!format || !ALLOWED_SHARP_FORMATS.has(format)) {
+    throw new Error("Arquivo de imagem inválido.");
+  }
+
+  return image
     .rotate()
     .resize(512, 512, { fit: "cover", withoutEnlargement: true })
     .webp({ quality: 82, effort: 4 })

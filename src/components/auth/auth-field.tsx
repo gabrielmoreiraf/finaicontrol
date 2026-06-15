@@ -15,6 +15,8 @@ export function AuthField({
   minLength,
   labelExtra,
   revealToggle,
+  defaultValue,
+  readOnly,
 }: {
   id: string;
   name: string;
@@ -27,6 +29,8 @@ export function AuthField({
   minLength?: number;
   labelExtra?: React.ReactNode;
   revealToggle?: boolean;
+  defaultValue?: string;
+  readOnly?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const isPassword = type === "password";
@@ -57,7 +61,9 @@ export function AuthField({
           autoComplete={autoComplete}
           required={required}
           minLength={minLength}
-          className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25"
+          defaultValue={defaultValue}
+          readOnly={readOnly}
+          className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25 read-only:cursor-not-allowed read-only:text-white/55"
           style={{ paddingTop: "0.85em", paddingBottom: "0.85em", fontSize: "0.95em" }}
         />
         {isPassword && revealToggle && (

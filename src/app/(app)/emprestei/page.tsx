@@ -2,7 +2,6 @@ import { desc, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { EmpresteiManager } from "@/components/app/modules/emprestei-manager";
 import { EmpresteiView } from "@/components/app/modules/emprestei-view";
-import { PlanGate } from "@/components/app/plan-gate";
 import {
   createLoan,
   deleteLoan,
@@ -53,6 +52,8 @@ function mapPayment(row: typeof loanPayments.$inferSelect): LoanPaymentRecord {
 export default async function EmpresteiPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  // #10: módulo oculto por padrão — só acessível se o admin liberou para o usuário.
+  if (!user.loansEnabled) redirect("/dashboard");
 
   const loanRows = await db
     .select()
@@ -81,20 +82,18 @@ export default async function EmpresteiPage() {
   );
 
   return (
-    <PlanGate feature="loans" planId={user.plan!} fullPage>
-      <div className="space-y-10">
-        <EmpresteiView items={items} />
-        <div id="cadastro-emprestei">
-          <EmpresteiManager
-            items={items}
-            planId={user.plan!}
-            createAction={createLoan}
-            updateAction={updateLoan}
-            deleteAction={deleteLoan}
-            registerPaymentAction={registerLoanPayment}
-          />
-        </div>
+    <div className="space-y-10">
+      <EmpresteiView items={items} />
+      <div id="cadastro-emprestei">
+        <EmpresteiManager
+          items={items}
+          planId={user.plan!}
+          createAction={createLoan}
+          updateAction={updateLoan}
+          deleteAction={deleteLoan}
+          registerPaymentAction={registerLoanPayment}
+        />
       </div>
-    </PlanGate>
+    </div>
   );
 }

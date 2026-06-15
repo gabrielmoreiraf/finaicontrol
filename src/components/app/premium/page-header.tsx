@@ -13,10 +13,14 @@ export function PageHeader({
 }) {
   return (
     <div className={cn("flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between", className)}>
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">{title}</h1>
+      <div className="min-w-0">
+        <h1 className="text-[clamp(1.5rem,1.1rem+1.6vw,1.875rem)] font-bold leading-tight tracking-tight text-foreground">
+          {title}
+        </h1>
         {description && (
-          <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground sm:text-base">{description}</p>
+          <p className="mt-1.5 max-w-2xl text-[clamp(0.875rem,0.82rem+0.25vw,1rem)] text-muted-foreground">
+            {description}
+          </p>
         )}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}

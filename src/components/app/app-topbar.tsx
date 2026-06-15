@@ -1,5 +1,6 @@
 "use client";
 
+import { BalanceToggle } from "@/components/app/balance-visibility";
 import { NotificationsMenu } from "@/components/app/notifications-menu";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { UserAccountMenu } from "@/components/app/user-account-menu";
@@ -59,6 +60,8 @@ export function AppTopbar({
         )}
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          <BalanceToggle />
+
           <NotificationsMenu notifications={notifications} />
 
           <ThemeToggle variant="icon" className="size-10 rounded-xl" />

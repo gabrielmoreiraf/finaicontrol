@@ -3,7 +3,7 @@ import { cache } from "react";
 import { EMPTY_DISPLAY } from "@/lib/empty-display";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { debts, expenses, goals, loanPayments, loans } from "@/lib/db/schema";
+import { debts, goals, loanPayments, loans } from "@/lib/db/schema";
 import {
   getCachedExpenses,
   getCachedIncomes,
@@ -19,6 +19,12 @@ import type {
   DashboardUpcomingIncome,
 } from "@/lib/dashboard/types";
 import { brl, INCOME_TYPE_LABELS } from "@/lib/finance/format";
+import {
+  daysUntil,
+  formatShortDate,
+  nextOccurrence,
+  parseLocalDate,
+} from "@/lib/finance/date";
 import {
   buildLoanRow,
   getNextDueDate,
@@ -61,30 +67,6 @@ export interface DashboardData {
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function nextOccurrence(dayOfMonth: number, from = new Date()): Date {
-  const year = from.getFullYear();
-  const month = from.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(dayOfMonth, lastDay);
-  let target = new Date(year, month, day);
-  if (target < from) {
-    const nextMonth = month + 1;
-    const nextLast = new Date(year, nextMonth + 1, 0).getDate();
-    target = new Date(year, nextMonth, Math.min(dayOfMonth, nextLast));
-  }
-  return target;
-}
-
-function daysUntil(date: Date, from = new Date()): number {
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-}
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
 function billPriority(days: number): DashboardUpcomingBill["priority"] {
   if (days <= 3) return "high";
   if (days <= 7) return "medium";
@@ -94,7 +76,8 @@ function billPriority(days: number): DashboardUpcomingBill["priority"] {
 function buildSummary(
   monthlyIncome: number,
   monthlyExpenses: number,
-  balance: number,
+  freeAfterGoals: number,
+  goalReservations: number,
   goalCount: number,
   incomeCount: number,
   expenseCount: number,
@@ -119,9 +102,16 @@ function buildSummary(
     {
       id: "balance",
       label: "Saldo projetado",
-      value: brl(balance),
-      change: balance > 0 ? "positivo" : balance < 0 ? "atenção: negativo" : "sem movimentação",
-      trend: balance > 0 ? "up" : balance < 0 ? "down" : "neutral",
+      value: brl(freeAfterGoals),
+      change:
+        goalReservations > 0
+          ? `livre após contas e ${brl(goalReservations)} em metas`
+          : freeAfterGoals > 0
+            ? "livre após contas pagas"
+            : freeAfterGoals < 0
+              ? "atenção: negativo"
+              : "sem movimentação",
+      trend: freeAfterGoals > 0 ? "up" : freeAfterGoals < 0 ? "down" : "neutral",
       icon: "balance",
     },
     {
@@ -142,10 +132,13 @@ function buildHealth(balance: number, savingsRate: number, hasData: boolean): Da
       maxScore: 100,
       status: EMPTY_DISPLAY,
       description: "Cadastre receitas e despesas para calcular sua saúde financeira.",
+      tone: "empty",
     };
   }
 
   const score = Math.min(100, Math.max(0, 40 + savingsRate));
+  const tone: DashboardHealthData["tone"] =
+    balance < 0 ? "bad" : score >= 70 ? "good" : "regular";
   return {
     score,
     maxScore: 100,
@@ -154,6 +147,7 @@ function buildHealth(balance: number, savingsRate: number, hasData: boolean): Da
       balance >= 0
         ? `Poupança projetada: ${savingsRate}%.`
         : "Despesas acima das receitas. Ajuste o orçamento.",
+    tone,
   };
 }
 
@@ -327,7 +321,7 @@ function buildTemporaryIncomes(
   return incomeRows
     .filter((row) => row.type === "temporary" && row.endDate)
     .map((row) => {
-      const end = new Date(row.endDate!);
+      const end = parseLocalDate(row.endDate!);
       const monthsLeft = Math.max(
         0,
         (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()),
@@ -350,15 +344,83 @@ function buildTemporaryIncomes(
     .sort((a, b) => a.monthsLeft - b.monthsLeft);
 }
 
-function buildProjection(monthlyIncome: number, monthlyExpenses: number, balance: number): DashboardProjectionPoint[] {
+function monthIndexOf(date: Date): number {
+  return date.getFullYear() * 12 + date.getMonth();
+}
+
+function parseMonthIndex(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const d = new Date(`${dateStr}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
+/**
+ * Projeção mês a mês (6 meses) que respeita o que TERMINA ao longo do tempo:
+ * - rendas temporárias deixam de contar após a data de término;
+ * - despesas parceladas contam só dentro da janela de parcelas;
+ * - dívidas deixam de contar após serem quitadas (saldo / parcela mensal).
+ * O `saldo` é o acumulado projetado (soma dos saldos mensais líquidos).
+ */
+function buildProjection(
+  fixedIncome: number,
+  incomeRows: { amount: string; type: string; endDate: string | null }[],
+  expenseRows: {
+    amount: string;
+    type: string;
+    installmentCount: number | null;
+    paymentStartDate: string | null;
+  }[],
+  debtRows: { balance: string; monthlyPayment: string }[],
+): DashboardProjectionPoint[] {
   const now = new Date();
-  return Array.from({ length: 6 }, (_, index) => {
-    const monthDate = new Date(now.getFullYear(), now.getMonth() + index, 1);
+  const baseIndex = monthIndexOf(now);
+
+  const debtPlans = debtRows.map((d) => {
+    const balance = Number(d.balance);
+    const pay = Number(d.monthlyPayment);
+    return { pay, months: pay > 0 ? Math.ceil(balance / pay) : Number.POSITIVE_INFINITY };
+  });
+
+  let cumulative = 0;
+  return Array.from({ length: 6 }, (_, i) => {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    const idx = baseIndex + i;
+
+    let receitas = fixedIncome;
+    for (const row of incomeRows) {
+      const amount = Number(row.amount);
+      if (amount <= 0) continue;
+      if (row.type === "temporary") {
+        const endIdx = parseMonthIndex(row.endDate);
+        if (endIdx !== null && idx > endIdx) continue;
+      }
+      receitas += amount;
+    }
+
+    let despesas = 0;
+    for (const row of expenseRows) {
+      const amount = Number(row.amount);
+      if (amount <= 0) continue;
+      if (row.type === "installment") {
+        const startIdx = parseMonthIndex(row.paymentStartDate);
+        const count = row.installmentCount ?? 0;
+        if (startIdx !== null && count > 0 && (idx < startIdx || idx > startIdx + count - 1)) {
+          continue;
+        }
+      }
+      despesas += amount;
+    }
+    for (const plan of debtPlans) {
+      if (i < plan.months) despesas += plan.pay;
+    }
+
+    cumulative += receitas - despesas;
     return {
       month: MONTH_LABELS[monthDate.getMonth()] ?? EMPTY_DISPLAY,
-      receitas: monthlyIncome,
-      despesas: monthlyExpenses,
-      saldo: balance * (index + 1),
+      receitas,
+      despesas,
+      saldo: cumulative,
     };
   });
 }
@@ -390,7 +452,7 @@ function buildAlerts(
 
   for (const income of incomeRows) {
     if (income.type !== "temporary" || !income.endDate) continue;
-    const end = new Date(income.endDate);
+    const end = parseLocalDate(income.endDate);
     if (Number.isNaN(end.getTime())) continue;
     const monthsLeft =
       (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth());
@@ -431,7 +493,14 @@ export const getDashboardData = cache(async function getDashboardData(
       getCachedIncomes(userId),
       getCachedExpenses(userId),
       db.select().from(debts).where(eq(debts.userId, userId)),
-      db.select({ id: goals.id }).from(goals).where(eq(goals.userId, userId)),
+      db
+        .select({
+          id: goals.id,
+          monthlyContribution: goals.monthlyContribution,
+          completed: goals.completed,
+        })
+        .from(goals)
+        .where(eq(goals.userId, userId)),
       db.select().from(loans).where(eq(loans.userId, userId)),
       db.select().from(loanPayments).where(eq(loanPayments.userId, userId)),
     ]);
@@ -448,6 +517,14 @@ export const getDashboardData = cache(async function getDashboardData(
   const savingsRate = monthlyIncome > 0 ? Math.round((balance / monthlyIncome) * 100) : 0;
   const hasData = monthlyIncome > 0 || monthlyExpenses > 0;
   const goalCount = goalRows.length;
+
+  // Reserva mensal das metas ativas → o "Saldo projetado" é o que sobra DEPOIS
+  // de pagar contas E reservar para as metas.
+  const goalReservations = goalRows.reduce(
+    (sum, g) => sum + (g.completed ? 0 : Number(g.monthlyContribution)),
+    0,
+  );
+  const freeAfterGoals = balance - goalReservations;
 
   const categoryTotals = new Map<string, number>();
   for (const e of expenseRows) {
@@ -472,8 +549,8 @@ export const getDashboardData = cache(async function getDashboardData(
     },
     {
       label: "Saldo projetado",
-      value: brl(balance),
-      change: balance >= 0 ? "positivo" : "atenção",
+      value: brl(freeAfterGoals),
+      change: goalReservations > 0 ? "após contas e metas" : freeAfterGoals >= 0 ? "positivo" : "atenção",
     },
     {
       label: "Metas ativas",
@@ -487,7 +564,7 @@ export const getDashboardData = cache(async function getDashboardData(
   const upcomingIncome = buildUpcomingIncome(fixedIncome, incomeRows, loanIncome);
   const upcomingBills = buildUpcomingBills(expenseRows);
   const temporaryIncomes = buildTemporaryIncomes(incomeRows);
-  const projection = buildProjection(monthlyIncome, monthlyExpenses, balance);
+  const projection = buildProjection(fixedIncome, incomeRows, expenseRows, debtRows);
 
   const projectionMonths = projection.map((point) => ({
     month: point.month,
@@ -506,7 +583,8 @@ export const getDashboardData = cache(async function getDashboardData(
     summary: buildSummary(
       monthlyIncome,
       monthlyExpenses,
-      balance,
+      freeAfterGoals,
+      goalReservations,
       goalCount,
       incomeRows.length + (fixedIncome > 0 ? 1 : 0),
       expenseRows.length + debtRows.length,

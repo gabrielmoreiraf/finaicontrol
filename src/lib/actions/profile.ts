@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { profiles, users } from "@/lib/db/schema";
-import { getCurrentUser } from "@/lib/auth/session";
+import { getCurrentUser, invalidateOtherSessions } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { convertAvatarToWebp, validateAvatarFile } from "@/lib/avatar/process-upload";
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
@@ -126,6 +126,9 @@ export async function changePasswordAction(
 
   const passwordHash = await hashPassword(newPassword);
   await db.update(users).set({ passwordHash }).where(eq(users.id, user.id));
+
+  // Segurança (M6): desconecta as outras sessões, mantendo apenas a atual.
+  await invalidateOtherSessions(user.id);
 
   revalidateProfilePaths();
   return { success: true, message: TOAST_MESSAGES.profile.passwordUpdated };

@@ -1,3 +1,5 @@
+import { brl } from "@/lib/finance/format";
+
 export type LoanPaymentMode = "interest_only" | "fixed_installments" | "single";
 export type LoanStatus = "active" | "paid" | "overdue" | "cancelled";
 export type LoanPaymentType = "interest" | "principal" | "both" | "full";
@@ -422,8 +424,6 @@ export function validateFixedInstallmentAmount(
   );
   if (installmentAmount + 0.001 >= min) return null;
 
-  const brl = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const totalInterest = calculateFixedInstallmentTotalInterest(
     principalAmount,
     interestRatePercent,
@@ -457,30 +457,17 @@ export type LoanPaymentSummary = {
   incompleteMessage?: string;
 };
 
-function countMonthsInclusive(start: Date, end: Date): number {
+/**
+ * Meses COMPLETOS entre duas datas (não conta o extremo final parcial).
+ * Consistente com `elapsedMonths` usado no modo "single" — evita inflar ~1 mês
+ * de juros que o antigo `countMonthsInclusive` causava no modo "só juros".
+ */
+function monthsBetween(start: Date, end: Date): number {
   if (end < start) return 0;
-
-  let count = 0;
-  let year = start.getFullYear();
-  let month = start.getMonth();
-  const endYear = end.getFullYear();
-  const endMonth = end.getMonth();
-
-  while (year < endYear || (year === endYear && month <= endMonth)) {
-    count++;
-    month++;
-    if (month > 11) {
-      month = 0;
-      year++;
-    }
-  }
-
-  return count;
-}
-
-function formatDateBrFromIso(value: string): string | null {
-  const date = parseDate(value);
-  return date ? formatDateBr(date) : null;
+  let months =
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  if (end.getDate() < start.getDate()) months -= 1; // o mês ainda não fechou
+  return Math.max(0, months);
 }
 
 export function buildLoanPaymentSummary(
@@ -496,8 +483,6 @@ export function buildLoanPaymentSummary(
 ): LoanPaymentSummary | null {
   if (principalAmount <= 0) return null;
 
-  const brl = (value: number) =>
-    value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   switch (paymentMode) {
     case "fixed_installments": {
@@ -612,7 +597,7 @@ export function buildLoanPaymentSummary(
       const end = options.expectedEndDate ? parseDate(options.expectedEndDate) : null;
 
       if (start && end && end >= start && monthly > 0) {
-        const months = countMonthsInclusive(start, end);
+        const months = monthsBetween(start, end);
         const totalInterest = Math.round(monthly * months * 100) / 100;
         const totalToPay = Math.round((principalAmount + totalInterest) * 100) / 100;
         const endLabel = formatDateBr(end);

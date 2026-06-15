@@ -5,6 +5,12 @@ export const TOAST_URL_KEYS = {
   emailVerified: "email-verified",
   onboarding: "onboarding",
   planSelected: "plan-selected",
+  passwordReset: "password-reset",
+  accountDeleted: "account-deleted",
+  trialActivated: "trial-ativado",
+  trialOtherUser: "trial-outro-usuario",
+  trialExpired: "trial-expirado",
+  trialInvalid: "trial-invalido",
 } as const;
 
 export type ToastUrlKey = (typeof TOAST_URL_KEYS)[keyof typeof TOAST_URL_KEYS];
@@ -37,6 +43,30 @@ export const TOAST_URL_MESSAGES: Record<
     title: "Plano selecionado!",
     description: "Continue a configuração da sua conta.",
   },
+  [TOAST_URL_KEYS.passwordReset]: {
+    title: "Senha redefinida!",
+    description: "Use a nova senha para entrar na sua conta.",
+  },
+  [TOAST_URL_KEYS.accountDeleted]: {
+    title: "Conta excluída",
+    description: "Seus dados foram removidos permanentemente. Até logo!",
+  },
+  [TOAST_URL_KEYS.trialActivated]: {
+    title: "30 dias liberados! 🎉",
+    description: "Acesso completo ativado. Aproveite todos os recursos.",
+  },
+  [TOAST_URL_KEYS.trialOtherUser]: {
+    title: "Este link não é para esta conta",
+    description: "O acesso é exclusivo do e-mail que recebeu o convite.",
+  },
+  [TOAST_URL_KEYS.trialExpired]: {
+    title: "Link expirado",
+    description: "O prazo para resgatar este acesso terminou.",
+  },
+  [TOAST_URL_KEYS.trialInvalid]: {
+    title: "Link inválido",
+    description: "Este link de acesso não é válido ou já foi usado.",
+  },
 };
 
 export const TOAST_MESSAGES = {
@@ -63,6 +93,8 @@ export const TOAST_MESSAGES = {
     updated: "Meta atualizada com sucesso.",
     deleted: "Meta removida com sucesso.",
     validation: "Informe o nome da meta.",
+    completed: "Meta concluída! Parabéns 🎉",
+    reopened: "Meta reaberta.",
   },
   loan: {
     created: "Empréstimo cadastrado com sucesso.",

@@ -3,6 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { brl } from "@/lib/finance/format";
 import {
+  daysUntil,
+  formatShortDate,
+  nextOccurrence,
+  parseLocalDate,
+} from "@/lib/finance/date";
+import {
   getCachedExpenses,
   getCachedIncomes,
 } from "@/lib/finance/cached-queries";
@@ -15,30 +21,6 @@ export type AppNotification = {
   href?: string;
   timeLabel: string;
 };
-
-function nextOccurrence(dayOfMonth: number, from = new Date()): Date {
-  const year = from.getFullYear();
-  const month = from.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(dayOfMonth, lastDay);
-  let target = new Date(year, month, day);
-  if (target < from) {
-    const nextMonth = month + 1;
-    const nextLast = new Date(year, nextMonth + 1, 0).getDate();
-    target = new Date(year, nextMonth, Math.min(dayOfMonth, nextLast));
-  }
-  return target;
-}
-
-function daysUntil(date: Date, from = new Date()): number {
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-}
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
 
 function buildNotifications(
   fixedIncome: number,
@@ -58,7 +40,7 @@ function buildNotifications(
 
   for (const income of incomeRows) {
     if (income.type !== "temporary" || !income.endDate) continue;
-    const end = new Date(income.endDate);
+    const end = parseLocalDate(income.endDate);
     if (Number.isNaN(end.getTime())) continue;
     const monthsLeft =
       (end.getFullYear() - now.getFullYear()) * 12 +

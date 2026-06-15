@@ -41,6 +41,15 @@ export async function assertPlanFeatureAccess(
   return actionError(`Este recurso requer o plano ${required} ou superior.`);
 }
 
+/**
+ * Emprestei é um entitlement por usuário liberado pelo admin (#10), não um
+ * recurso de plano. Sem ele, o módulo é totalmente bloqueado.
+ */
+export function assertLoansEnabled(loansEnabled: boolean): ActionResult | null {
+  if (loansEnabled) return null;
+  return actionError("O módulo Emprestei não está disponível na sua conta.");
+}
+
 export async function assertCanCreateEntry(
   userId: string,
   plan: SubscriptionPlan,

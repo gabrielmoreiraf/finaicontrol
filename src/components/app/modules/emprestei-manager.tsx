@@ -68,7 +68,7 @@ const PAYMENT_TYPE_OPTIONS = Object.entries(LOAN_PAYMENT_TYPE_LABELS).map(([valu
 }));
 
 const LOAN_FIELDS = [
-  { name: "borrowerName", label: "Quem pegou emprestado", type: "text" as const, required: true, placeholder: "Ex: João" },
+  { name: "borrowerName", label: "Quem pegou emprestado", type: "text" as const, required: true, placeholder: "Apelido ou iniciais (ex.: João S.)" },
   { name: "principalAmount", label: "Valor emprestado", type: "currency" as const, required: true },
   {
     name: "paymentMode",

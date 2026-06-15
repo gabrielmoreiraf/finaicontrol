@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, ShieldCheck } from "lucide-react";
+import { Coins, Mail, Rocket, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { FormSelect } from "@/components/ui/form-select";
 import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/app/premium/user-avatar";
-import { updateCustomerAccessAction } from "@/lib/actions/admin";
+import {
+  grantEntryCreditsAction,
+  grantTrialAction,
+  logCustomerViewAction,
+  updateCustomerAccessAction,
+} from "@/lib/actions/admin";
 import type { AdminCustomer } from "@/lib/admin/customers";
 import type { SubscriptionPlan } from "@/types/finance";
 import { notify } from "@/lib/toast";
@@ -66,15 +71,72 @@ function CustomerDetailForm({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+
+  // LGPD (Art. 37): registra que este admin visualizou os dados deste cliente.
+  useEffect(() => {
+    void logCustomerViewAction(customer.id);
+  }, [customer.id]);
+
   const [plan, setPlan] = useState<SubscriptionPlan>(customer.plan ?? "free");
   const [isAdminRole, setIsAdminRole] = useState(customer.role === "admin");
+  const [loansEnabled, setLoansEnabled] = useState(customer.loansEnabled);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const [creditAmount, setCreditAmount] = useState("5");
+  const [creditReason, setCreditReason] = useState("");
+  const [isGranting, startGranting] = useTransition();
+
+  const [trialDays, setTrialDays] = useState("30");
+  const [isTrialing, startTrial] = useTransition();
+
+  const trialActive = customer.trialActive;
+
+  function applyTrial(days: number) {
+    const formData = new FormData();
+    formData.set("userId", customer.id);
+    formData.set("days", String(days));
+    startTrial(async () => {
+      const result = await grantTrialAction(formData);
+      if (result.ok) {
+        notify.success(result.message ?? "Acesso atualizado.");
+        router.refresh();
+        onDone();
+      } else {
+        notify.error(result.error);
+      }
+    });
+  }
+
+  function grantCredits() {
+    const amount = Math.trunc(Number(creditAmount));
+    if (!Number.isFinite(amount) || amount === 0) {
+      notify.error("Informe uma quantidade de créditos (diferente de zero).");
+      return;
+    }
+    const formData = new FormData();
+    formData.set("userId", customer.id);
+    formData.set("amount", String(amount));
+    formData.set("reason", creditReason);
+
+    startGranting(async () => {
+      const result = await grantEntryCreditsAction(formData);
+      if (result.ok) {
+        notify.success(result.message ?? "Créditos registrados.");
+        setCreditReason("");
+        router.refresh();
+        onDone();
+      } else {
+        notify.error(result.error);
+      }
+    });
+  }
 
   const isSelf = customer.id === currentAdminId;
   const nextRole = isAdminRole ? "admin" : "user";
   const planChanged = plan !== (customer.plan ?? "free");
   const roleChanged = nextRole !== customer.role;
-  const hasChanges = planChanged || roleChanged;
+  const loansChanged = loansEnabled !== customer.loansEnabled;
+  const hasChanges = planChanged || roleChanged || loansChanged;
 
   function save() {
     setConfirmOpen(false);
@@ -82,6 +144,7 @@ function CustomerDetailForm({
     formData.set("userId", customer.id);
     formData.set("plan", plan);
     formData.set("role", nextRole);
+    formData.set("loansEnabled", String(loansEnabled));
 
     startTransition(async () => {
       const result = await updateCustomerAccessAction(formData);
@@ -141,21 +204,32 @@ function CustomerDetailForm({
           label="Onboarding"
           value={customer.onboardingComplete ? "Concluído" : "Pendente"}
         />
+        <InfoRow
+          label="Créditos de lançamentos"
+          value={
+            <span className="inline-flex items-center gap-1.5">
+              <Coins className="size-3.5 text-amber-500" aria-hidden />
+              {customer.entryCredits}
+            </span>
+          }
+        />
+        <InfoRow
+          label="Acesso trial"
+          value={
+            trialActive ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <Rocket className="size-3.5" aria-hidden />
+                até {dateFormatter.format(new Date(customer.trialExpiresAt!))}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">—</span>
+            )
+          }
+        />
         <InfoRow label="Profissão" value={customer.profession || "—"} />
         <InfoRow
           label="Renda fixa"
           value={customer.fixedMonthlyIncome > 0 ? currency.format(customer.fixedMonthlyIncome) : "—"}
-        />
-        <InfoRow
-          label="Outras rendas"
-          value={
-            [
-              customer.hasVariableIncome ? "Variável" : null,
-              customer.hasExtraIncome ? "Extra" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "—"
-          }
         />
         <InfoRow
           label="Forma de pagamento"
@@ -201,6 +275,21 @@ function CustomerDetailForm({
           </span>
         </label>
 
+        <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 dark:border-white/[0.06]">
+          <Checkbox
+            checked={loansEnabled}
+            onCheckedChange={(checked) => setLoansEnabled(checked === true)}
+            className="mt-0.5"
+          />
+          <span className="text-sm">
+            <span className="font-medium">Liberar módulo Emprestei</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Recurso oculto por padrão. Marque para liberar empréstimos a pessoas
+              para este cliente.
+            </span>
+          </span>
+        </label>
+
         <Button
           type="button"
           onClick={handleSave}
@@ -209,6 +298,106 @@ function CustomerDetailForm({
         >
           {isPending ? "Salvando..." : "Salvar alterações"}
         </Button>
+      </div>
+
+      <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/30 p-4 dark:border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <Coins className="size-4 text-amber-500" aria-hidden />
+          <h3 className="text-sm font-medium">Liberar créditos de lançamentos</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Concede lançamentos extras além do limite mensal do plano Gratuito (5/mês).
+          Saldo atual: <span className="font-medium text-foreground">{customer.entryCredits}</span>.
+          Use um valor negativo para corrigir. Tudo fica registrado no histórico.
+        </p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="credit-amount">Quantidade</Label>
+            <input
+              id="credit-amount"
+              type="number"
+              inputMode="numeric"
+              value={creditAmount}
+              onChange={(event) => setCreditAmount(event.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:border-white/[0.08] dark:bg-card/60"
+            />
+          </div>
+          <div className="col-span-2 space-y-1.5">
+            <Label htmlFor="credit-reason">Motivo (opcional)</Label>
+            <input
+              id="credit-reason"
+              type="text"
+              maxLength={200}
+              value={creditReason}
+              onChange={(event) => setCreditReason(event.target.value)}
+              placeholder="Ex.: cortesia de teste"
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:border-white/[0.08] dark:bg-card/60"
+            />
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={grantCredits}
+          disabled={isGranting}
+          className="w-full"
+        >
+          {isGranting ? "Registrando..." : "Registrar créditos"}
+        </Button>
+      </div>
+
+      <div className="mt-3 space-y-3 rounded-xl border border-border bg-muted/30 p-4 dark:border-white/[0.06]">
+        <div className="flex items-center gap-2">
+          <Rocket className="size-4 text-emerald-500" aria-hidden />
+          <h3 className="text-sm font-medium">Liberar acesso completo (trial)</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Dá acesso a todo o sistema (Premium) por tempo limitado, sem mexer no plano real.
+          {trialActive ? (
+            <>
+              {" "}
+              Ativo até{" "}
+              <span className="font-medium text-foreground">
+                {dateFormatter.format(new Date(customer.trialExpiresAt!))}
+              </span>
+              .
+            </>
+          ) : (
+            " Nenhum trial ativo no momento."
+          )}
+        </p>
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="w-24 space-y-1.5">
+            <Label htmlFor="trial-days">Dias</Label>
+            <input
+              id="trial-days"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              value={trialDays}
+              onChange={(event) => setTrialDays(event.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none transition-colors focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:border-white/[0.08] dark:bg-card/60"
+            />
+          </div>
+          <Button
+            type="button"
+            onClick={() => applyTrial(Math.max(1, Math.trunc(Number(trialDays) || 0)))}
+            disabled={isTrialing}
+            className="btn-brand flex-1"
+          >
+            {isTrialing ? "Liberando..." : `Liberar ${Math.max(1, Math.trunc(Number(trialDays) || 0))} dias`}
+          </Button>
+          {trialActive && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => applyTrial(0)}
+              disabled={isTrialing}
+            >
+              Remover
+            </Button>
+          )}
+        </div>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>

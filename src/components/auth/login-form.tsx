@@ -9,7 +9,7 @@ import { notify } from "@/lib/toast";
 
 const initialState: AuthState = {};
 
-export function LoginForm() {
+export function LoginForm({ redirect }: { redirect?: string }) {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
 
   useEffect(() => {
@@ -18,6 +18,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {redirect && <input type="hidden" name="redirect" value={redirect} />}
       <AuthField
         id="login-email"
         name="email"
@@ -41,18 +42,19 @@ export function LoginForm() {
           required
           revealToggle
         />
-        <button
-          type="button"
+        <Link
+          href="/esqueci-senha"
           className="self-end font-medium tracking-wide text-brand transition-opacity hover:opacity-80"
           style={{ fontSize: "0.8em" }}
-          title="Em breve"
         >
           Esqueceu a senha?
-        </button>
+        </Link>
       </div>
 
       {state.error && (
         <p
+          role="alert"
+          aria-live="assertive"
           className="rounded-lg border border-red-500/30 bg-red-500/10 text-red-300"
           style={{ fontSize: "0.9em", padding: "0.5em 0.75em" }}
         >

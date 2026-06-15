@@ -20,8 +20,11 @@ export interface AdminCustomer {
   avatarUrl: string | null;
   profession: string;
   fixedMonthlyIncome: number;
-  hasVariableIncome: boolean;
-  hasExtraIncome: boolean;
+  loansEnabled: boolean;
+  entryCredits: number;
+  trialPlan: SubscriptionPlan | null;
+  trialExpiresAt: string | null;
+  trialActive: boolean;
 }
 
 export interface AdminOverview {
@@ -29,6 +32,7 @@ export interface AdminOverview {
   free: number;
   plus: number;
   premium: number;
+  staff: number;
   verified: number;
   onboarded: number;
 }
@@ -42,17 +46,20 @@ export async function requireAdmin() {
 }
 
 function buildOverview(customers: AdminCustomer[]): AdminOverview {
+  // Admins têm plano "premium" sintético (por role, não assinatura). Para não
+  // distorcer a distribuição de planos, eles entram em "Equipe", não em free/plus/premium.
   return customers.reduce<AdminOverview>(
     (acc, c) => {
       acc.total += 1;
-      if (c.plan === "plus") acc.plus += 1;
+      if (c.role === "admin") acc.staff += 1;
+      else if (c.plan === "plus") acc.plus += 1;
       else if (c.plan === "premium") acc.premium += 1;
       else acc.free += 1;
       if (c.emailVerified) acc.verified += 1;
       if (c.onboardingComplete) acc.onboarded += 1;
       return acc;
     },
-    { total: 0, free: 0, plus: 0, premium: 0, verified: 0, onboarded: 0 },
+    { total: 0, free: 0, plus: 0, premium: 0, staff: 0, verified: 0, onboarded: 0 },
   );
 }
 
@@ -67,14 +74,16 @@ export async function getAdminData(): Promise<{
       email: users.email,
       plan: users.plan,
       role: users.role,
+      loansEnabled: users.loansEnabled,
+      entryCredits: users.entryCredits,
+      trialPlan: users.trialPlan,
+      trialExpiresAt: users.trialExpiresAt,
       emailVerified: users.emailVerified,
       onboardingComplete: users.onboardingComplete,
       createdAt: users.createdAt,
       avatarUpdatedAt: profiles.avatarUpdatedAt,
       profession: profiles.profession,
       fixedMonthlyIncome: profiles.fixedMonthlyIncome,
-      hasVariableIncome: profiles.hasVariableIncome,
-      hasExtraIncome: profiles.hasExtraIncome,
     })
     .from(users)
     .leftJoin(profiles, eq(profiles.userId, users.id))
@@ -92,8 +101,11 @@ export async function getAdminData(): Promise<{
     avatarUrl: buildAvatarUrl(r.id, r.avatarUpdatedAt),
     profession: r.profession ?? "",
     fixedMonthlyIncome: Number(r.fixedMonthlyIncome ?? 0),
-    hasVariableIncome: r.hasVariableIncome ?? false,
-    hasExtraIncome: r.hasExtraIncome ?? false,
+    loansEnabled: r.loansEnabled ?? false,
+    entryCredits: r.entryCredits ?? 0,
+    trialPlan: (r.trialPlan as SubscriptionPlan | null) ?? null,
+    trialExpiresAt: r.trialExpiresAt ? r.trialExpiresAt.toISOString() : null,
+    trialActive: !!r.trialExpiresAt && r.trialExpiresAt.getTime() > Date.now(),
   }));
 
   return { customers, overview: buildOverview(customers) };

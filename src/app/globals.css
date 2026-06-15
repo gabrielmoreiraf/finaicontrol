@@ -138,6 +138,51 @@
   html {
     @apply font-sans;
   }
+
+  /* ── Scrollbar padronizada em TODO o sistema ───────────────────────────
+     Default global de marca (thin). Regras específicas em @layer utilities
+     (.finia-scroll, .app-sidebar) têm prioridade e podem ocultar a barra
+     onde for intencional (sidebar, viewport principal no mobile). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.55 0 0 / 28%) transparent;
+  }
+  html.dark * {
+    scrollbar-color: oklch(1 0 0 / 18%) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: oklch(0.55 0 0 / 28%);
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--brand) 70%, white 8%);
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  html.dark *::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 18%);
+    background-clip: padding-box;
+  }
+  html.dark *::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--brand) 75%, white 5%);
+    background-clip: padding-box;
+  }
+
+  /* Evita "puxar" o scroll da página por trás de modais/menus internos. */
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 @layer utilities {
@@ -286,6 +331,7 @@
   .finia-scroll {
     scrollbar-width: thin;
     scrollbar-color: color-mix(in oklch, var(--brand) 65%, transparent) transparent;
+    scrollbar-gutter: stable;
   }
 
   .finia-scroll::-webkit-scrollbar {
@@ -324,6 +370,7 @@
   @media (max-width: 63.999rem) {
     .finia-scroll {
       scrollbar-width: none;
+      scrollbar-gutter: auto;
     }
 
     .finia-scroll::-webkit-scrollbar {
@@ -701,5 +748,18 @@
   100% {
     transform: translate(100%, 0%);
     opacity: 0;
+  }
+}
+
+/* M11 — Respeita a preferência de movimento reduzido do sistema operacional.
+   Mantém a interface utilizável sem animações para quem ativa essa opção. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

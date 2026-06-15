@@ -1,13 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DataPage } from "@/components/app/data-page";
 import { PageHeader } from "@/components/app/premium/page-header";
 import { DataTable, StatCard } from "@/components/app/premium/data-table";
 import { UserAvatar } from "@/components/app/premium/user-avatar";
 import { CustomerDetailDialog } from "@/components/app/admin/customer-detail-dialog";
+import { InviteDialog } from "@/components/app/admin/invite-dialog";
+import { BroadcastDialog } from "@/components/app/admin/broadcast-dialog";
 import { getPlanLabel } from "@/lib/plans";
 import type { AdminCustomer, AdminOverview } from "@/lib/admin/customers";
+import type { PendingInvitation } from "@/lib/auth/invitation";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -57,15 +63,19 @@ function Pill({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 export function AdminView({
   customers,
   overview,
+  invitations,
   currentAdminId,
 }: {
   customers: AdminCustomer[];
   overview: AdminOverview;
+  invitations: PendingInvitation[];
   currentAdminId: string;
 }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<AdminCustomer | null>(null);
   const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -76,7 +86,18 @@ export function AdminView({
     );
   }, [customers, query]);
 
-  const rows = filtered.map((c) => ({
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const from = filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const to = Math.min(currentPage * pageSize, filtered.length);
+
+  function handleQuery(value: string) {
+    setQuery(value);
+    setPage(1);
+  }
+
+  const rows = paged.map((c) => ({
     name: (
       <span className="flex items-center gap-2 font-medium">
         <UserAvatar name={c.name} imageUrl={c.avatarUrl} size="sm" />
@@ -101,22 +122,33 @@ export function AdminView({
   }));
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Painel Admin"
-        description="Visão geral dos clientes cadastrados no FinIA Control."
-      />
+    <DataPage>
+      {/* Cabeçalho + indicadores + busca: fixos */}
+      <div className="shrink-0 space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <PageHeader
+            title="Painel Admin"
+            description="Visão geral dos clientes cadastrados no FinIA Control."
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <BroadcastDialog
+              totalUsers={overview.total}
+              users={customers.map((c) => ({ name: c.name, email: c.email }))}
+            />
+            <InviteDialog invitations={invitations} />
+          </div>
+        </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <StatCard label="Clientes" value={String(overview.total)} />
-        <StatCard label="Gratuito" value={String(overview.free)} />
-        <StatCard label="Plus" value={String(overview.plus)} />
-        <StatCard label="Premium IA" value={String(overview.premium)} />
-        <StatCard label="Verificados" value={String(overview.verified)} />
-        <StatCard label="Onboarding" value={String(overview.onboarded)} />
-      </div>
+        <div className="grid gap-3 sm:gap-4 [grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))]">
+          <StatCard label="Clientes" value={String(overview.total - overview.staff)} />
+          <StatCard label="Gratuito" value={String(overview.free)} />
+          <StatCard label="Plus" value={String(overview.plus)} />
+          <StatCard label="Premium IA" value={String(overview.premium)} />
+          <StatCard label="Equipe" value={String(overview.staff)} />
+          <StatCard label="Verificados" value={String(overview.verified)} />
+          <StatCard label="Onboarding" value={String(overview.onboarded)} />
+        </div>
 
-      <div className="space-y-3">
         <div className="relative max-w-sm">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -125,33 +157,88 @@ export function AdminView({
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => handleQuery(event.target.value)}
             placeholder="Buscar por nome ou e-mail..."
             className="h-10 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:border-white/[0.08] dark:bg-card/60"
           />
         </div>
+      </div>
 
-        {rows.length > 0 ? (
-          <DataTable
-            columns={COLUMNS}
-            rows={rows}
-            onRowClick={(index) => {
-              setSelected(filtered[index]);
-              setOpen(true);
-            }}
-          />
-        ) : (
-          <p className="rounded-2xl border border-border bg-card py-10 text-center text-sm text-muted-foreground dark:border-white/[0.06]">
+      {/* Tabela: ocupa o restante e rola por dentro (cabeçalho fixo) */}
+      {rows.length > 0 ? (
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          fillHeight
+          onRowClick={(index) => {
+            setSelected(paged[index]);
+            setOpen(true);
+          }}
+        />
+      ) : (
+        <div className="lg:flex lg:flex-1 lg:items-center lg:justify-center">
+          <p className="w-full rounded-2xl border border-border bg-card py-10 text-center text-sm text-muted-foreground dark:border-white/[0.06]">
             Nenhum cliente encontrado para “{query}”.
           </p>
-        )}
+        </div>
+      )}
 
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} de {customers.length} cliente(s) · clique numa linha para ver
-          detalhes e editar. Forma de pagamento e vencimento ficam disponíveis quando o
-          pagamento (Stripe) for ativado.
-        </p>
-      </div>
+      {filtered.length > 0 && (
+        <div className="flex shrink-0 flex-col items-center justify-between gap-3 sm:flex-row">
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-medium text-foreground">{from}</span>–
+              <span className="font-medium text-foreground">{to}</span> de{" "}
+              <span className="font-medium text-foreground">{filtered.length}</span>
+            </p>
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Por página
+              <select
+                value={pageSize}
+                onChange={(event) => {
+                  setPageSize(Number(event.target.value));
+                  setPage(1);
+                }}
+                aria-label="Itens por página"
+                className="h-8 rounded-lg border border-border bg-card px-2 text-xs text-foreground outline-none transition-colors focus:border-brand/40 focus:ring-2 focus:ring-brand/15 dark:border-white/[0.08] dark:bg-card/60"
+              >
+                {PAGE_SIZE_OPTIONS.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 rounded-lg border-white/10"
+                disabled={currentPage <= 1}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+                Anterior
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1 rounded-lg border-white/10"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                Próxima
+                <ChevronRight className="size-4" aria-hidden />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <CustomerDetailDialog
         customer={selected}
@@ -159,6 +246,6 @@ export function AdminView({
         onOpenChange={setOpen}
         currentAdminId={currentAdminId}
       />
-    </div>
+    </DataPage>
   );
 }

@@ -15,6 +15,7 @@ export const landingDashboardDemo: DashboardViewModel = {
     maxScore: 100,
     status: "Boa",
     description: "Poupança projetada: 12%.",
+    tone: "good",
   },
   summary: [
     {

@@ -18,6 +18,8 @@ export type AppNavLink = {
   shortLabel?: string;
   icon: LucideIcon;
   feature: PlanFeature;
+  /** Módulo ainda em desenvolvimento (placeholder) — exibe selo "Em breve". */
+  comingSoon?: boolean;
 };
 
 export const APP_NAV_LINKS: AppNavLink[] = [
@@ -25,9 +27,9 @@ export const APP_NAV_LINKS: AppNavLink[] = [
   { href: "/receitas", label: "Receitas", icon: TrendingUp, feature: "incomes" },
   { href: "/despesas", label: "Despesas", icon: CreditCard, feature: "expenses" },
   { href: "/metas", label: "Metas", icon: Target, feature: "goals" },
-  { href: "/dividas", label: "Dívidas", icon: Wallet, feature: "debts" },
+  { href: "/dividas", label: "Dívidas", icon: Wallet, feature: "debts", comingSoon: true },
   { href: "/emprestei", label: "Emprestei", icon: HandCoins, feature: "loans" },
-  { href: "/investimentos", label: "Investimentos", icon: LineChart, feature: "investments" },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3, feature: "reports" },
+  { href: "/investimentos", label: "Investimentos", icon: LineChart, feature: "investments", comingSoon: true },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3, feature: "reports", comingSoon: true },
   { href: "/ia", label: "Assistente IA", shortLabel: "IA", icon: Bot, feature: "ai_assistant" },
 ];

@@ -1,6 +1,7 @@
 import { LogOut, Settings } from "lucide-react";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { AccountPrivacyCard } from "@/components/app/account-privacy-card";
 import { ProfileAvatarUpload } from "@/components/app/profile-avatar-upload";
 import { ChangePasswordForm } from "@/components/app/change-password-form";
 import { ProfileForm } from "@/components/app/profile-form";
@@ -50,6 +51,8 @@ export default async function ConfiguracoesPage() {
       </Card>
 
       <SettingsPlanCard planId={plan} />
+
+      <AccountPrivacyCard />
 
       <Card className="border-border/50 bg-card/80">
         <CardHeader>

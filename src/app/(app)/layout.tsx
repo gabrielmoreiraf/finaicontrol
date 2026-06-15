@@ -21,6 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       planId={user.plan}
       planHighlighted={plan.highlighted}
       isAdmin={user.role === "admin"}
+      loansEnabled={user.loansEnabled}
       notifications={notifications}
     >
       {children}

@@ -1,4 +1,5 @@
 import { Hourglass } from "lucide-react";
+import { Amount } from "@/components/app/balance-visibility";
 import { EmptyState } from "@/components/app/premium/empty-state";
 import { PremiumCard } from "@/components/app/premium/premium-card";
 import type { DashboardTemporaryIncome } from "@/lib/dashboard/types";
@@ -32,7 +33,9 @@ export function TemporaryIncomeCard({ items }: { items: DashboardTemporaryIncome
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="font-semibold">{item.label}</p>
-                  <p className="mt-1 text-lg font-bold text-brand">{item.amount}</p>
+                  <p className="mt-1 text-lg font-bold text-brand">
+                    <Amount>{item.amount}</Amount>
+                  </p>
                 </div>
                 <span className="rounded-lg bg-muted px-2 py-1 text-xs font-medium text-muted-foreground dark:bg-white/[0.04]">
                   Restam {item.monthsLeft} meses

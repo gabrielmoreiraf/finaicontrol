@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSessionCookieName } from "@/lib/auth/session-cookie";
 
-const SESSION_COOKIE = "finia_session";
+const SESSION_COOKIE = getSessionCookieName();
 
 const PROTECTED_PREFIXES = [
   "/dashboard",

@@ -54,6 +54,8 @@ export function ExpenseCategoryCombobox({
 
   const showDropdown = open && (suggestions.length > 0 || showCreate);
 
+  // Portal só no cliente (evita mismatch SSR). Padrão "mounted" — setState único.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   function updatePosition() {
@@ -112,6 +114,9 @@ export function ExpenseCategoryCombobox({
           left: position.left,
           width: position.width,
           zIndex: 9999,
+          // Dentro de um modal Radix o body fica com pointer-events:none;
+          // reativamos aqui para o dropdown poder ser clicado.
+          pointerEvents: "auto",
         }}
         className="finia-scroll max-h-48 overflow-y-auto rounded-lg border border-border bg-popover py-1 text-popover-foreground shadow-md"
       >

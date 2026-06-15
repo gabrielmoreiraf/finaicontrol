@@ -19,11 +19,16 @@ import { cn } from "@/lib/utils";
 export function AppSidebar({
   planId = "free",
   isAdmin = false,
+  loansEnabled = false,
 }: {
   planId?: SubscriptionPlan;
   isAdmin?: boolean;
+  loansEnabled?: boolean;
 }) {
   const pathname = usePathname();
+  const navLinks = APP_NAV_LINKS.filter(
+    (link) => link.href !== "/emprestei" || loansEnabled,
+  );
 
   return (
     <aside className="app-sidebar fixed inset-y-0 left-0 z-30 hidden h-dvh w-[var(--sidebar-width,17.5rem)] flex-col overflow-hidden border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl lg:flex">
@@ -41,7 +46,7 @@ export function AppSidebar({
         className="min-h-0 flex-1 space-y-1 overflow-hidden px-3 py-4"
         aria-label="Navegação principal"
       >
-        {APP_NAV_LINKS.map(({ href, label, icon: Icon, feature }) => {
+        {navLinks.map(({ href, label, icon: Icon, feature, comingSoon }) => {
           const active =
             pathname === href ||
             (href !== "/dashboard" && pathname.startsWith(href));
@@ -53,6 +58,7 @@ export function AppSidebar({
             <Link
               key={href}
               href={href}
+              prefetch={false}
               title={limited ? limitedHint ?? undefined : undefined}
               className={cn(
                 "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all",
@@ -78,6 +84,11 @@ export function AppSidebar({
                 aria-hidden
               />
               {label}
+              {comingSoon && !locked && (
+                <span className="ml-auto rounded-full border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]">
+                  Em breve
+                </span>
+              )}
               {limited && (
                 <span
                   className="ml-auto flex items-center gap-1.5"
