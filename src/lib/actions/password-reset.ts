@@ -37,7 +37,7 @@ export async function requestPasswordResetAction(
   const email = normalizeEmail(String(formData.get("email") ?? ""));
 
   const ip = await getClientIp();
-  const limit = checkRateLimit(`reset:${ip}:${email}`, { max: 3, windowMs: 5 * 60_000 });
+  const limit = await checkRateLimit(`reset:${ip}:${email}`, { max: 3, windowMs: 5 * 60_000 });
   if (!limit.allowed) {
     return { error: tooManyRequestsMessage(limit.retryAfterSeconds) };
   }

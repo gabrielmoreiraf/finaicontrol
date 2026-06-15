@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { DataPage } from "@/components/app/data-page";
 import { ReceitasView } from "@/components/app/modules/receitas-view";
 import { PlanUsageBanner } from "@/components/app/plan-usage-banner";
 import { ResourceTable, type ResourceTableRow } from "@/components/app/resource-table";
@@ -10,8 +11,8 @@ import { db } from "@/lib/db/client";
 import { incomes, profiles } from "@/lib/db/schema";
 import { INCOME_TYPE_LABELS, brl } from "@/lib/finance/format";
 import { getIncomeSummary } from "@/lib/finance/summary";
+import { parsePage, parsePageSize } from "@/lib/pagination";
 
-const PAGE_SIZE = 20;
 const INCOME_TYPES = ["fixed", "variable", "extra", "temporary"];
 
 const FIELDS: ResourceField[] = [
@@ -39,7 +40,7 @@ const FIELDS: ResourceField[] = [
 ];
 
 type PageProps = {
-  searchParams: Promise<{ page?: string; tipo?: string }>;
+  searchParams: Promise<{ page?: string; tipo?: string; por?: string; q?: string }>;
 };
 
 export default async function ReceitasPage({ searchParams }: PageProps) {
@@ -48,7 +49,9 @@ export default async function ReceitasPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const tipo = params.tipo && INCOME_TYPES.includes(params.tipo) ? params.tipo : "all";
-  const page = Math.max(1, Number(params.page) || 1);
+  const q = (params.q ?? "").trim().slice(0, 80);
+  const page = parsePage(params.page);
+  const pageSize = parsePageSize(params.por);
 
   const [profileRow] = await db
     .select({ fixedMonthlyIncome: profiles.fixedMonthlyIncome })
@@ -59,20 +62,36 @@ export default async function ReceitasPage({ searchParams }: PageProps) {
   const fixedIncome = Number(profileRow?.fixedMonthlyIncome ?? 0);
   const summary = await getIncomeSummary(user.id, fixedIncome);
 
-  const where =
-    tipo === "all"
-      ? eq(incomes.userId, user.id)
-      : and(eq(incomes.userId, user.id), eq(incomes.type, tipo));
+  const conditions = [eq(incomes.userId, user.id)];
+  if (tipo !== "all") conditions.push(eq(incomes.type, tipo));
+  if (q) conditions.push(ilike(incomes.label, `%${q}%`));
+  const where = and(...conditions);
 
-  const total = tipo === "all" ? summary.totalCount : (summary.byType[tipo]?.count ?? 0);
-  const offset = (page - 1) * PAGE_SIZE;
+  const [countRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(incomes)
+    .where(where);
+  const total = Number(countRow?.total ?? 0);
+
+  // F2.1: nunca deixa o usuário numa página fora do range (ex.: após excluir itens).
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) {
+    const qs = new URLSearchParams();
+    if (tipo !== "all") qs.set("tipo", tipo);
+    if (q) qs.set("q", q);
+    if (params.por) qs.set("por", params.por);
+    if (totalPages > 1) qs.set("page", String(totalPages));
+    redirect(`/receitas${qs.toString() ? `?${qs}` : ""}`);
+  }
+
+  const offset = (page - 1) * pageSize;
 
   const rows = await db
     .select()
     .from(incomes)
     .where(where)
     .orderBy(desc(incomes.createdAt))
-    .limit(PAGE_SIZE)
+    .limit(pageSize)
     .offset(offset);
 
   const tableRows: ResourceTableRow[] = rows.map((r) => ({
@@ -102,9 +121,11 @@ export default async function ReceitasPage({ searchParams }: PageProps) {
   ];
 
   return (
-    <div className="space-y-10">
-      <PlanUsageBanner userId={user.id} planId={user.plan!} />
-      <ReceitasView summary={summary} fixedIncome={fixedIncome} />
+    <DataPage>
+      <div className="shrink-0 space-y-4">
+        <PlanUsageBanner userId={user.id} planId={user.plan!} />
+        <ReceitasView summary={summary} fixedIncome={fixedIncome} />
+      </div>
       <ResourceTable
         title="Gerenciar receitas"
         description="Adicione, edite ou remova receitas. Clique em uma linha para editar."
@@ -123,11 +144,13 @@ export default async function ReceitasPage({ searchParams }: PageProps) {
         updateAction={updateIncome}
         deleteAction={deleteIncome}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         total={total}
         filterTabs={filterTabs}
         activeFilter={tipo}
+        searchPlaceholder="Buscar receita..."
+        fillHeight
       />
-    </div>
+    </DataPage>
   );
 }

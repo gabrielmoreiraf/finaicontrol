@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/app/premium/page-header";
 import { StatCard } from "@/components/app/premium/data-table";
-import { EMPTY_DISPLAY } from "@/lib/empty-display";
 import { brl } from "@/lib/finance/format";
 import type { IncomeSummary } from "@/lib/finance/summary";
 
@@ -11,6 +10,9 @@ type ReceitasViewProps = {
 
 export function ReceitasView({ summary, fixedIncome }: ReceitasViewProps) {
   const { total, byType } = summary;
+  const fixedTotal = fixedIncome + byType.fixed.total;
+  const pct = (value: number) => (total > 0 ? Math.round((value / total) * 100) : 0);
+  const share = (value: number) => (total > 0 ? `${pct(value)}% do total` : "—");
 
   const stats = [
     {
@@ -21,32 +23,35 @@ export function ReceitasView({ summary, fixedIncome }: ReceitasViewProps) {
     },
     {
       label: "Fixas",
-      value: brl(fixedIncome + byType.fixed.total),
-      change: fixedIncome > 0 ? "inclui perfil" : EMPTY_DISPLAY,
+      value: brl(fixedTotal),
+      change: share(fixedTotal),
+      progress: pct(fixedTotal),
       trend: "neutral" as const,
     },
     {
       label: "Variáveis",
       value: brl(byType.variable.total),
-      change: EMPTY_DISPLAY,
+      change: share(byType.variable.total),
+      progress: pct(byType.variable.total),
       trend: "neutral" as const,
     },
     {
       label: "Temporárias",
       value: brl(byType.temporary.total),
       change: `${byType.temporary.count} fonte(s)`,
+      progress: pct(byType.temporary.total),
       trend: "neutral" as const,
     },
   ];
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-4">
       <PageHeader
         title="Receitas"
         description="Rendas fixas, variáveis, extras e temporárias, tudo em um só lugar."
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:[grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))]">
         {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}

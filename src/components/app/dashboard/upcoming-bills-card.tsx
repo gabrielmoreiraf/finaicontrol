@@ -1,4 +1,5 @@
 import { Clock, Receipt } from "lucide-react";
+import { Amount } from "@/components/app/balance-visibility";
 import { EmptyState } from "@/components/app/premium/empty-state";
 import { PremiumCard } from "@/components/app/premium/premium-card";
 import type { DashboardUpcomingBill } from "@/lib/dashboard/types";
@@ -33,7 +34,7 @@ export function UpcomingBillsCard({ items }: { items: DashboardUpcomingBill[] })
             description="Cadastre despesas com dia de vencimento em Despesas para acompanhar aqui."
           />
         ) : (
-          <ul className="space-y-3">
+          <ul className="finia-scroll max-h-[19rem] space-y-3 overflow-y-auto pr-1">
           {items.map((item) => {
             const urgency = getUrgency(item.daysUntil);
             return (
@@ -46,7 +47,9 @@ export function UpcomingBillsCard({ items }: { items: DashboardUpcomingBill[] })
                   <p className="mt-0.5 text-xs text-muted-foreground">{item.date}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <p className="text-sm font-semibold sm:text-base">{item.amount}</p>
+                  <p className="text-sm font-semibold sm:text-base">
+                    <Amount>{item.amount}</Amount>
+                  </p>
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide",

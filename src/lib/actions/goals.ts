@@ -13,10 +13,12 @@ import { assertPlanFeatureAccess } from "@/lib/plans/guard";
 function parseValues(formData: FormData) {
   const target = Number(formData.get("targetAmount") ?? 0);
   const current = Number(formData.get("currentAmount") ?? 0);
+  const contribution = Number(formData.get("monthlyContribution") ?? 0);
   return {
     name: String(formData.get("name") ?? "").trim().slice(0, 120),
     targetAmount: (Number.isFinite(target) && target > 0 ? target : 0).toFixed(2),
     currentAmount: (Number.isFinite(current) && current > 0 ? current : 0).toFixed(2),
+    monthlyContribution: (Number.isFinite(contribution) && contribution > 0 ? contribution : 0).toFixed(2),
   };
 }
 
@@ -97,7 +99,16 @@ export async function updateGoal(formData: FormData): Promise<ActionResult> {
     }
     await db
       .update(goals)
-      .set(values)
+      // F2.2: invariante "concluída ⇔ atingiu 100%". Se a edição deixar o alvo
+      // acima do atual, a meta reabre automaticamente (completed só permanece
+      // verdadeiro enquanto current >= target).
+      .set({
+        ...values,
+        completed:
+          Number(values.currentAmount) >= Number(values.targetAmount)
+            ? sql`${goals.completed}`
+            : false,
+      })
       .where(and(eq(goals.id, id), eq(goals.userId, user.id)));
   } catch (error) {
     console.error("[updateGoal]", error);

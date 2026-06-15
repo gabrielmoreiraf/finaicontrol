@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Send, Sparkles } from "lucide-react";
+import { Bot, Loader2, Send, Sparkles, TriangleAlert } from "lucide-react";
 import { FiniaMascot } from "@/components/app/premium/finia-mascot";
 import { EmptyState } from "@/components/app/premium/empty-state";
 import { PageHeader } from "@/components/app/premium/page-header";
@@ -23,34 +23,110 @@ export function IaAssistantView() {
   const initialQuery = searchParams.get("q") ?? "";
   const [input, setInput] = useState(initialQuery);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const idRef = useRef(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  function sendMessage(text?: string) {
+  // Rola para a última mensagem a cada atualização (envio + streaming).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages]);
+
+  function nextId() {
+    idRef.current += 1;
+    return `m${idRef.current}`;
+  }
+
+  async function sendMessage(text?: string) {
     const content = (text ?? input).trim();
-    if (!content) return;
+    if (!content || isLoading) return;
+
+    const userMsg: ChatMessage = { id: nextId(), role: "user", content };
+    const assistantId = nextId();
+
+    // Histórico enviado ao servidor (apenas papel + conteúdo).
+    const history = [...messages, userMsg].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
 
     setMessages((prev) => [
       ...prev,
-      { id: String(Date.now()), role: "user", content },
-      {
-        id: String(Date.now() + 1),
-        role: "assistant",
-        content:
-          "A IA usará seus dados cadastrados para responder. Cadastre receitas, despesas, dívidas e metas para respostas personalizadas.",
-      },
+      userMsg,
+      { id: assistantId, role: "assistant", content: "" },
     ]);
     setInput("");
+    setIsLoading(true);
+
+    function setAssistant(value: string) {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: value } : m)),
+      );
+    }
+
+    try {
+      const res = await fetch("/api/ia/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+
+      if (!res.ok || !res.body) {
+        const errorText = await res.text().catch(() => "");
+        setAssistant(
+          errorText || "Não consegui responder agora. Tente novamente.",
+        );
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setAssistant(acc);
+      }
+      if (!acc.trim()) {
+        setAssistant("Não recebi uma resposta. Tente reformular a pergunta.");
+      }
+    } catch {
+      setAssistant(
+        "Falha de conexão com o assistente. Verifique sua internet e tente de novo.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
-    <div className="flex h-[calc(100dvh-12rem)] min-h-[32rem] flex-col gap-4 lg:h-[calc(100dvh-8rem)]">
+    <div className="flex flex-col gap-4">
       <PageHeader
         title="Assistente IA"
         description="Converse com a FinIA sobre finanças, com respostas baseadas nos seus dados cadastrados."
       />
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[1fr_280px]">
-        <PremiumCard className="flex min-h-0 flex-col overflow-hidden ai-assistant-glow border-brand/15">
-          <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+      <div
+        role="status"
+        className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300"
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
+        <p>
+          <span className="font-medium">Atenção:</span> o Assistente IA ainda
+          está em desenvolvimento e pode fornecer informações inconsistentes ou
+          imprecisas. Estamos evoluindo a ferramenta, se algo parecer errado,
+          por favor nos avise.
+        </p>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_280px] lg:items-start">
+        <PremiumCard className="flex flex-col overflow-hidden ai-assistant-glow border-brand/15">
+          <div
+            ref={scrollRef}
+            className="h-[55vh] space-y-4 overflow-y-auto p-4 sm:p-6"
+          >
             {messages.length === 0 ? (
               <EmptyState
                 title="Nenhuma conversa ainda"
@@ -61,7 +137,10 @@ export function IaAssistantView() {
               messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={cn("flex gap-3", msg.role === "user" ? "justify-end" : "justify-start")}
+                  className={cn(
+                    "flex gap-3",
+                    msg.role === "user" ? "justify-end" : "justify-start",
+                  )}
                 >
                   {msg.role === "assistant" && (
                     <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-brand/15 text-brand">
@@ -77,9 +156,18 @@ export function IaAssistantView() {
                     )}
                   >
                     {msg.highlight ? (
-                      <p className="mb-2 text-2xl font-bold text-brand">{msg.highlight}</p>
+                      <p className="mb-2 text-2xl font-bold text-brand">
+                        {msg.highlight}
+                      </p>
                     ) : null}
-                    <p>{msg.content}</p>
+                    {msg.role === "assistant" && msg.content === "" ? (
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                        Pensando...
+                      </span>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
                 </div>
               ))
@@ -97,11 +185,20 @@ export function IaAssistantView() {
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
+                disabled={isLoading}
                 placeholder="Pergunte sobre suas finanças..."
-                className="h-12 flex-1 rounded-xl border border-white/[0.08] bg-background/70 px-4 text-sm outline-none focus:border-brand/40 focus:ring-2 focus:ring-brand/15"
+                className="h-12 flex-1 rounded-xl border border-white/[0.08] bg-background/70 px-4 text-sm outline-none focus:border-brand/40 focus:ring-2 focus:ring-brand/15 disabled:opacity-60"
               />
-              <Button type="submit" className="size-12 shrink-0 rounded-xl btn-brand">
-                <Send className="size-4" />
+              <Button
+                type="submit"
+                disabled={isLoading || !input.trim()}
+                className="size-12 shrink-0 rounded-xl btn-brand"
+              >
+                {isLoading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
               </Button>
             </div>
           </form>
@@ -131,7 +228,8 @@ export function IaAssistantView() {
                     key={s}
                     type="button"
                     onClick={() => sendMessage(s)}
-                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-foreground dark:border-white/15 dark:bg-white/[0.07]"
+                    disabled={isLoading}
+                    className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-left text-xs text-muted-foreground transition-colors hover:border-brand/40 hover:bg-brand/10 hover:text-foreground disabled:opacity-50 dark:border-white/15 dark:bg-white/[0.07]"
                   >
                     {s}
                   </button>

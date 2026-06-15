@@ -20,9 +20,11 @@ export interface AdminCustomer {
   avatarUrl: string | null;
   profession: string;
   fixedMonthlyIncome: number;
-  hasVariableIncome: boolean;
-  hasExtraIncome: boolean;
   loansEnabled: boolean;
+  entryCredits: number;
+  trialPlan: SubscriptionPlan | null;
+  trialExpiresAt: string | null;
+  trialActive: boolean;
 }
 
 export interface AdminOverview {
@@ -73,14 +75,15 @@ export async function getAdminData(): Promise<{
       plan: users.plan,
       role: users.role,
       loansEnabled: users.loansEnabled,
+      entryCredits: users.entryCredits,
+      trialPlan: users.trialPlan,
+      trialExpiresAt: users.trialExpiresAt,
       emailVerified: users.emailVerified,
       onboardingComplete: users.onboardingComplete,
       createdAt: users.createdAt,
       avatarUpdatedAt: profiles.avatarUpdatedAt,
       profession: profiles.profession,
       fixedMonthlyIncome: profiles.fixedMonthlyIncome,
-      hasVariableIncome: profiles.hasVariableIncome,
-      hasExtraIncome: profiles.hasExtraIncome,
     })
     .from(users)
     .leftJoin(profiles, eq(profiles.userId, users.id))
@@ -98,9 +101,11 @@ export async function getAdminData(): Promise<{
     avatarUrl: buildAvatarUrl(r.id, r.avatarUpdatedAt),
     profession: r.profession ?? "",
     fixedMonthlyIncome: Number(r.fixedMonthlyIncome ?? 0),
-    hasVariableIncome: r.hasVariableIncome ?? false,
-    hasExtraIncome: r.hasExtraIncome ?? false,
     loansEnabled: r.loansEnabled ?? false,
+    entryCredits: r.entryCredits ?? 0,
+    trialPlan: (r.trialPlan as SubscriptionPlan | null) ?? null,
+    trialExpiresAt: r.trialExpiresAt ? r.trialExpiresAt.toISOString() : null,
+    trialActive: !!r.trialExpiresAt && r.trialExpiresAt.getTime() > Date.now(),
   }));
 
   return { customers, overview: buildOverview(customers) };

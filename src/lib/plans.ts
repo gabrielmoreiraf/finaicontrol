@@ -9,6 +9,21 @@ export function getPlanLabel(planId: SubscriptionPlan): string {
   return getPlanDetails(planId).name;
 }
 
+/** Ordem de poder dos planos (do menor para o maior). */
+const PLAN_ORDER: SubscriptionPlan[] = ["free", "plus", "premium"];
+
+export function planRank(plan: SubscriptionPlan | null): number {
+  return plan ? PLAN_ORDER.indexOf(plan) : -1;
+}
+
+/** Retorna o maior entre dois planos (usado para o trial nunca rebaixar). */
+export function higherPlan(
+  a: SubscriptionPlan | null,
+  b: SubscriptionPlan | null,
+): SubscriptionPlan | null {
+  return planRank(a) >= planRank(b) ? a : b;
+}
+
 export function formatPlanPrice(planId: SubscriptionPlan): string {
   const plan = getPlanDetails(planId);
   return plan.period ? `${plan.price}${plan.period}` : plan.price;

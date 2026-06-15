@@ -103,6 +103,10 @@ export function FieldInput({
     );
   }
 
+  if (field.type === "number") {
+    return <NumberField field={field} defaultValue={defaultValue} inputId={id} />;
+  }
+
   return (
     <Input
       id={id}
@@ -110,11 +114,51 @@ export function FieldInput({
       required={field.required}
       defaultValue={defaultValue ?? undefined}
       type={field.type}
-      step={field.step}
-      min={field.min}
-      max={field.max}
       placeholder={field.placeholder}
       className={fieldControlClass}
+    />
+  );
+}
+
+/**
+ * Campo numérico controlado: só aceita inteiros (sem `e`, sinal ou decimais) e
+ * limita ao máximo enquanto o usuário digita (ex.: "dia do mês" não passa de 31).
+ * Substitui o `<input type="number">` nativo, que aceitava valores inválidos.
+ */
+function NumberField({
+  field,
+  defaultValue,
+  inputId,
+}: {
+  field: ResourceField;
+  defaultValue?: string | number | null;
+  inputId: string;
+}) {
+  const [value, setValue] = useState(
+    defaultValue != null && defaultValue !== "" ? String(defaultValue) : "",
+  );
+
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    let digits = event.target.value.replace(/[^0-9]/g, "");
+    if (digits !== "") {
+      let n = parseInt(digits, 10);
+      if (field.max != null && n > field.max) n = field.max;
+      digits = String(n);
+    }
+    setValue(digits);
+  }
+
+  return (
+    <Input
+      id={inputId}
+      name={field.name}
+      value={value}
+      onChange={handleChange}
+      required={field.required}
+      inputMode="numeric"
+      placeholder={field.placeholder}
+      className={fieldControlClass}
+      autoComplete="off"
     />
   );
 }

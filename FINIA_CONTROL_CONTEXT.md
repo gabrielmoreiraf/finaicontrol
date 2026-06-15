@@ -1,6 +1,8 @@
 # FinIA Control | Documentação Principal do Projeto
 
 > **Arquivo de referência obrigatória.** Consulte este documento antes de implementar qualquer funcionalidade, tela ou regra de negócio. Ele define o propósito, escopo, diferenciais e diretrizes do FinIA Control.
+>
+> Documentos complementares: `docs/REQUISITOS_E_OBJETIVOS.md` (requisitos detalhados) e `docs/ESTADO_ATUAL.md` (estado técnico atual).
 
 ---
 
@@ -16,15 +18,17 @@
 8. [Assistente de IA](#8-assistente-de-ia)
 9. [Regras de Negócio](#9-regras-de-negócio)
 10. [Stack Tecnológica](#10-stack-tecnológica)
-11. [Identidade Visual](#11-identidade-visual)
-12. [Tom de Comunicação](#12-tom-de-comunicação)
-13. [Fase Atual do Projeto](#13-fase-atual-do-projeto)
+11. [Segurança](#11-segurança)
+12. [Identidade Visual](#12-identidade-visual)
+13. [Tom de Comunicação](#13-tom-de-comunicação)
+14. [Ambientes e Deploy](#14-ambientes-e-deploy)
+15. [Fase Atual do Projeto](#15-fase-atual-do-projeto)
 
 ---
 
 ## 1. Visão do Produto
 
-**FinIA Control** é uma plataforma web responsiva (desktop e mobile) para controle financeiro de **pessoa física** com inteligência artificial.
+**FinIA Control** é uma plataforma web responsiva (desktop, tablet e mobile) para controle financeiro de **pessoa física** com inteligência artificial.
 
 > **Escopo atual (definitivo):** apenas **pessoa física**, finanças pessoais ou familiares. Não há modo empresarial, PJ nem gestão para negócios. O cadastro não pergunta “tipo de conta”; todo usuário é tratado como pessoa física (`mode: personal` no banco).
 
@@ -84,7 +88,11 @@ Diferencial central: controle de rendas que não são fixas e têm data de térm
 
 A IA analisa **somente** os dados disponíveis do usuário. **Nunca inventa valores ou informações financeiras.**
 
-### 4.4 Foco em finanças pessoais
+### 4.4 Projeção financeira realista
+
+A projeção de saldo respeita o que **termina** ao longo do tempo: rendas temporárias param na data de fim, despesas parceladas valem só dentro da janela de parcelas, e dívidas deixam de contar após a quitação.
+
+### 4.5 Foco em finanças pessoais
 
 O produto é dedicado ao controle financeiro pessoal, com uma experiência enxuta e sem a complexidade de gestão empresarial.
 
@@ -106,14 +114,6 @@ O produto é dedicado ao controle financeiro pessoal, com uma experiência enxut
 
 Fluxo **obrigatório** após o cadastro, em **uma única tela** (não é mais um wizard de vários passos).
 
-### O que mudou em relação ao desenho anterior
-
-| Antes (descontinuado) | Agora (implementado) |
-|----------------------|----------------------|
-| Wizard com ~6 passos (modo, rendas, categorias, contas fixas, dívidas, metas) | **1 formulário** em `/onboarding` |
-| Escolha entre uso pessoal e empresarial | **Somente pessoa física**; sem etapa de “modo” |
-| Coleta pesada antes de entrar no app | Só o essencial; o restante nos módulos do app |
-
 ### Dados coletados hoje no onboarding
 
 | Campo | Obrigatório | Onde fica no banco |
@@ -121,15 +121,11 @@ Fluxo **obrigatório** após o cadastro, em **uma única tela** (não é mais um
 | Profissão / atividade | Não | `profiles.profession` |
 | Renda fixa mensal | Não | `profiles.fixed_monthly_income` |
 
-Ao enviar o formulário, o sistema marca `users.onboarding_complete = true` e redireciona para `/dashboard`.
+Ao enviar o formulário (com estado visível de **“Salvando…”**), o sistema marca `users.onboarding_complete = true` e redireciona para `/dashboard`.
 
 ### O que o usuário cadastra depois (nos módulos)
 
 Receitas (incl. variáveis/temporárias), despesas e categorias, dívidas e metas são cadastrados em **Receitas**, **Despesas**, **Dívidas** e **Metas**, não no onboarding inicial.
-
-### Evolução futura (opcional)
-
-Se for necessário enriquecer o primeiro acesso, preferir **passos opcionais** ou checklist no dashboard em vez de bloquear o usuário com um wizard longo. Não reintroduzir modo empresarial sem redefinir escopo do produto.
 
 ---
 
@@ -137,21 +133,26 @@ Se for necessário enriquecer o primeiro acesso, preferir **passos opcionais** o
 
 | Módulo | Responsabilidade | Status |
 |--------|------------------|--------|
-| **Autenticação** | Cadastro, login, sessão (e-mail + senha) | ✅ Implementado |
-| **Onboarding financeiro** | Uma tela: profissão + renda fixa (sem wizard multi-step) | ✅ `/onboarding` |
-| **Dashboard** | Visão geral, saldo, alertas e indicadores | ✅ Dados reais (Neon) |
-| **Receitas** | Cadastro e gestão de fontes de renda | ✅ CRUD completo |
-| **Despesas** | Registro e acompanhamento de gastos | ✅ CRUD completo |
-| **Categorias** | Organização de despesas | 🔜 Campo texto; tabela `expense_categories` sem UI dedicada |
-| **Contas fixas** | Despesas mensais recorrentes automáticas | 🔜 Via despesas tipo `fixed`; repetição automática mensal pendente |
-| **Contas parceladas** | Geração e acompanhamento de parcelas | 🔜 Fase futura |
-| **Dívidas** | Controle de obrigações e planos de quitação | ✅ CRUD completo |
-| **Emprestei** | Empréstimos a pessoas, juros, parcelas e pagamentos recebidos | ✅ `/emprestei` |
-| **Metas financeiras** | Objetivos e progresso | ✅ CRUD completo |
-| **Relatórios** | Análises visuais e exportação | 🔜 Fase futura |
+| **Autenticação** | Cadastro, login, sessão (e-mail + senha), verificação de e-mail | ✅ Implementado |
+| **Recuperação de senha** | “Esqueci a senha” → link por e-mail (1h) → redefinição | ✅ `/esqueci-senha`, `/redefinir-senha` |
+| **Onboarding financeiro** | Uma tela: profissão + renda fixa | ✅ `/onboarding` |
+| **Dashboard** | Visão geral, saldo, projeção, alertas e saúde financeira | ✅ Dados reais (Neon) |
+| **Receitas** | Tabela paginada + CRUD por modal | ✅ |
+| **Despesas** | Tabela paginada + CRUD por modal | ✅ |
+| **Categorias** | Organização de despesas | 🔜 Campo texto; sem UI dedicada |
+| **Contas fixas** | Despesas mensais recorrentes automáticas | 🔜 Repetição automática pendente |
+| **Contas parceladas** | Geração e acompanhamento de parcelas | 🔜 Modelo parcial |
+| **Dívidas** | Controle de obrigações e quitação | ✅ CRUD completo |
+| **Metas financeiras** | Objetivos, progresso e **conclusão ao atingir 100%** | ✅ |
+| **Emprestei** | Empréstimos a pessoas (juros, parcelas, pagamentos) | ✅ **Oculto por padrão; liberado por usuário pelo admin** |
+| **Relatórios** | Análises visuais e exportação | 🔜 Placeholder |
+| **Investimentos** | Acompanhamento de aplicações | 🔜 Placeholder |
 | **Assistente IA** | Chat, diagnósticos e recomendações | 🔜 Placeholder em `/ia` |
-| **Configurações** | Perfil e logout | ✅ Implementado |
-| **Planos e assinatura** | Monetização e limites por plano | 🔜 Fase futura |
+| **Configurações** | Perfil, troca de senha, avatar e logout | ✅ Implementado |
+| **Admin** | Gestão de clientes, planos, papéis e entitlement Emprestei | ✅ `/admin` |
+| **Planos e assinatura** | Monetização e limites por plano | 🔜 Cobrança (Stripe) na fase futura |
+
+> Todas as rotas têm telas de **erro**, **carregamento** e **404** (raiz e dentro do app).
 
 ---
 
@@ -175,71 +176,56 @@ Se não houver dados suficientes, a IA deve informar isso claramente. Nunca pree
 
 ### 8.3 Análises e entregáveis gerados pela IA
 
-- Diagnóstico financeiro
-- Alertas de gastos
-- Sugestões de economia
-- Plano para quitar dívidas
-- Projeção de saldo futuro
-- Análise de categorias
-- Simulação de compras futuras
+- Diagnóstico financeiro · Alertas de gastos · Sugestões de economia
+- Plano para quitar dívidas · Projeção de saldo futuro
+- Análise de categorias · Simulação de compras futuras
+
+> **Status:** o módulo de IA é hoje um placeholder; o princípio "não inventar dados" já está firmado para guiar a implementação.
 
 ---
 
 ## 9. Regras de Negócio
 
 ### 9.1 Isolamento de dados
-
-- Cada usuário **só pode acessar seus próprios dados**.
+- Cada usuário **só pode acessar seus próprios dados** (em toda leitura e escrita).
 
 ### 9.2 Tipos de receita
-
-Receitas podem ser:
-
-- Fixas
-- Variáveis
-- Extras
-- Temporárias
-- Recorrentes
-- Com **data de início**
-- Com **data de fim**
+Fixas, variáveis, extras, temporárias — com **dia do mês** (1–31) e, quando temporárias, **data de fim**.
 
 ### 9.3 Tipos de despesa
-
-Despesas podem ser:
-
-- Fixas
-- Variáveis
-- Parceladas
-- Recorrentes
-- Pendentes
-- Pagas
-- Vencidas
+Fixas, variáveis, parceladas — com categoria, vencimento e status.
 
 ### 9.4 Contas fixas
-
-- Devem **se repetir automaticamente** nos próximos meses.
-- Representam compromissos financeiros recorrentes conhecidos (ex.: aluguel, internet, assinaturas).
+- Devem **se repetir automaticamente** nos próximos meses (recorrência automática: 🔜).
 
 ### 9.5 Contas parceladas
-
-- Devem **gerar parcelas mensais** até o fim do parcelamento.
-- Cada parcela deve refletir valor, vencimento e status (pendente, paga, vencida).
+- Devem **gerar parcelas mensais** com valor, vencimento e status (pendente/paga/vencida).
 
 ### 9.6 Projeções com rendas temporárias
+- Rendas com data de fim aparecem nas projeções **apenas dentro do período válido**.
+- O sistema emite **alertas** quando a renda temporária está próxima do encerramento.
+- A projeção desconsidera rendas/parcelas/dívidas já encerradas no mês projetado.
 
-- Rendas com data de fim devem aparecer nas projeções **apenas dentro do período válido**.
-- O sistema deve emitir **alertas** quando a renda temporária estiver próxima do encerramento.
+### 9.7 Metas
+- Valor **alvo ≥ valor atual** e **> 0**; **nome único** por usuário.
+- Uma meta só pode ser **concluída** ao atingir 100% (valor atual ≥ alvo); pode ser reaberta.
 
-### 9.7 IA e integridade dos dados
+### 9.8 Validações de entrada
+- “Dia do mês” validado entre **1 e 31** no front e no servidor.
+- Mutations com tratamento de erro (`try/catch`) e sanitização de valores.
 
-- Respostas e análises devem citar ou derivar exclusivamente dos dados cadastrados.
-- Simulações devem deixar explícito que são projeções baseadas nos dados informados.
+### 9.9 Emprestei (entitlement)
+- Não é recurso de plano: é **liberado individualmente pelo admin** por usuário.
+- Oculto no menu, rota bloqueada e ausente da landing para quem não tem liberação.
+
+### 9.10 IA e integridade dos dados
+- Respostas e análises derivam **exclusivamente** dos dados cadastrados; simulações são explicitamente projeções.
 
 ---
 
 ## 10. Stack Tecnológica
 
-O FinIA Control usa uma arquitetura **full-stack em Next.js**: interface, regras de negócio, autenticação e persistência no mesmo projeto, com Postgres gerenciado na nuvem. Não há API Django separada.
+Arquitetura **full-stack em Next.js**: interface, regras de negócio, autenticação e persistência no mesmo projeto, com Postgres gerenciado na nuvem. Não há API Django separada.
 
 ```text
 Browser → Next.js (App Router + Server Actions) → Neon Postgres
@@ -253,10 +239,10 @@ Browser → Next.js (App Router + Server Actions) → Neon Postgres
 |------------|-----|
 | **Next.js 16** | App Router, Server Components, Server Actions, `proxy.ts` |
 | **React 19** | Interface de usuário |
-| **TypeScript** | Tipagem estática |
-| **Tailwind CSS** | Estilização utilitária |
-| **Shadcn UI** | Componentes de interface |
-| **Framer Motion** | Animações |
+| **TypeScript** | Tipagem estática fim-a-fim |
+| **Tailwind CSS v4** | Estilização utilitária |
+| **Shadcn UI / Radix** | Componentes de interface |
+| **Framer Motion** | Animações (respeita `prefers-reduced-motion`) |
 | **Lucide React** | Ícones |
 | **Recharts** | Gráficos e visualizações |
 
@@ -264,176 +250,152 @@ Browser → Next.js (App Router + Server Actions) → Neon Postgres
 
 | Tecnologia | Uso |
 |------------|-----|
-| **Neon** | Postgres gerenciado (projeto `finia-control`, região `aws-sa-east-1`) |
+| **Neon** | Postgres gerenciado (região `aws-sa-east-1`) |
 | **PostgreSQL 17** | Banco relacional |
 | **Drizzle ORM** | Schema, queries e migrações (`src/lib/db/schema.ts`) |
 | **@neondatabase/serverless** | Driver HTTP para ambiente serverless |
-| **drizzle-kit** | Geração e aplicação de migrações (`drizzle/`) |
+| **drizzle-kit** | Geração de migrações (`drizzle/`) |
 
-**Tabelas principais:** `users`, `sessions`, `profiles`, `incomes`, `expenses`, `expense_categories`, `debts`, `loans`, `loan_payments`, `goals`.
+**Tabelas:** `users`, `sessions`, `password_reset_tokens`, `email_verification_tokens`, `profiles`, `incomes`, `expense_categories`, `expenses`, `debts`, `goals`, `loans`, `loan_payments`.
 
-### 10.3 Autenticação e segurança
+**Migrações recentes:** `0007` recuperação de senha · `0008` índices por `user_id` · `0009` `goals.completed` · `0010` `users.loans_enabled`.
 
-| Tecnologia | Uso |
-|------------|-----|
-| **scrypt** (`node:crypto`) | Hash de senha (`src/lib/auth/password.ts`) |
-| **Cookie httpOnly** | Sessão `finia_session`, `sameSite=lax` |
-| **Tabela `sessions`** | Token opaco com `expires_at` |
-| **Server Actions** | `signUpAction`, `signInAction`, `signOutAction` |
-| **`src/proxy.ts`** | Redireciona rotas protegidas sem sessão (convenção Next.js 16; antes `middleware.ts`) |
+> Para aplicar SQL no Neon de forma confiável (o `drizzle-kit migrate` trava com o driver serverless), use `node scripts/apply-sql.mjs drizzle/<arquivo>.sql`.
 
-Cada Server Action valida o usuário via `getCurrentUser()`. Não depender só do proxy para autorização.
-
-### 10.4 Estrutura de código relevante
+### 10.3 Estrutura de código relevante
 
 | Caminho | Responsabilidade |
 |---------|------------------|
-| `src/lib/db/client.ts` | Conexão Drizzle + Neon |
-| `src/lib/db/schema.ts` | Definição das tabelas |
-| `src/lib/auth/session.ts` | Criar, ler e destruir sessão |
-| `src/lib/actions/*.ts` | Mutations (auth, CRUDs, onboarding, perfil) |
-| `src/lib/dashboard.ts` | Agregação de dados para o dashboard |
-| `src/components/app/resource-manager.tsx` | UI reutilizável dos CRUDs |
-| `drizzle.config.ts` | Configuração do Drizzle Kit |
+| `src/lib/db/client.ts` / `schema.ts` | Conexão Drizzle + definição das tabelas |
+| `src/lib/auth/session.ts` | Criar/ler/destruir sessão (cookie assinado) |
+| `src/lib/actions/*.ts` | Mutations (auth, recuperação de senha, CRUDs, onboarding, perfil, admin) |
+| `src/lib/finance/summary.ts` | Agregados em SQL para os painéis |
+| `src/lib/dashboard.ts` | Agregação de dados + projeção do dashboard |
+| `src/lib/plans/*` | Gating por plano e entitlement (Emprestei) |
+| `src/components/app/resource-table.tsx` | Tabela paginada com CRUD por modal |
 
-### 10.5 Variáveis de ambiente
-
-Copie `.env.example` para `.env.local`:
+### 10.4 Variáveis de ambiente
 
 | Variável | Descrição |
 |----------|-----------|
 | `DATABASE_URL` | Connection string do Neon (preferir endpoint `-pooler`) |
-| `SESSION_SECRET` | Segredo forte para sessões (produção: valor aleatório único) |
+| `SESSION_SECRET` | Segredo forte (obrigatório em produção; assina o cookie de sessão) |
+| `NEXT_PUBLIC_APP_URL` | Base dos links de e-mail (deve diferir por ambiente) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Envio de e-mail (verificação e recuperação) |
 
-### 10.6 Scripts npm
+### 10.5 Scripts npm
 
 | Script | Descrição |
 |--------|-----------|
-| `npm run dev` | Servidor de desenvolvimento (porta 3000) |
+| `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Build de produção |
 | `npm run db:generate` | Gera migrações a partir do schema |
-| `npm run db:migrate` | Aplica migrações |
 | `npm run db:studio` | UI do Drizzle Studio |
 
-### 10.7 Deploy
+### 10.6 Decisão arquitetural (Next.js vs Django)
 
-| Plataforma | Uso |
-|------------|-----|
-| **Vercel** | Deploy recomendado do Next.js |
-| **Neon** | Banco em produção (mesmo projeto ou branch de produção) |
-
-Configurar `DATABASE_URL` e `SESSION_SECRET` no painel da Vercel.
-
-### 10.8 Decisão arquitetural (Next.js vs Django)
-
-O roadmap original previa **Django + Django REST Framework + JWT** em fase posterior. A implementação atual consolidou o back-end no **próprio Next.js** porque:
-
-- Um único deploy e uma única linguagem (TypeScript) para UI e servidor.
-- Neon Postgres já disponível; Drizzle alinha tipos entre app e banco.
-- Server Actions cobrem cadastro, login, CRUDs e dashboard sem API REST separada.
-
-Um back-end Django continua possível no futuro se houver necessidade de API compartilhada com outros clientes (app mobile, integrações pesadas). Nesse caso o Next passaria a consumir a API externa.
-
-### 10.9 Ordem de implementação (atualizada)
-
-1. ✅ Landing page e identidade visual
-2. ✅ Autenticação real + persistência Neon
-3. ✅ Onboarding, dashboard e CRUDs (receitas, despesas, dívidas, metas)
-4. 🔜 Assistente de IA com dados reais
-5. 🔜 Recuperação de senha, contas parceladas, relatórios, planos
+O back-end foi consolidado no **próprio Next.js** (um deploy, uma linguagem). Um back-end Django continua possível no futuro se houver necessidade de API compartilhada com outros clientes (app mobile, integrações pesadas).
 
 ---
 
-## 11. Identidade Visual
+## 11. Segurança
 
-### 11.1 Referência
+| Item | Implementação |
+|------|---------------|
+| Hash de senha | scrypt (`node:crypto`) |
+| Sessão | token opaco em `sessions` + cookie **httpOnly assinado com HMAC** (`SESSION_SECRET`) |
+| Prefixo de cookie | **`__Host-`** em produção (Secure/Path/sem Domain) |
+| Recuperação de senha | token de 1h, **uso único**, **anti-enumeração**, invalida sessões |
+| Troca de senha | encerra as **demais sessões** do usuário |
+| Rate-limit | login, cadastro, reenvio e recuperação de senha |
+| Gating de planos | **no servidor** — conteúdo bloqueado não é renderizado nem enviado ao cliente |
+| Avatares | rota `/api/avatar/[userId]` exige sessão |
+| Autorização | toda Server Action valida `getCurrentUser()`; não depende só do `proxy.ts` |
 
-Inspiração visual: **[Meu Planner Financeiro](https://meuplannerfinanceiro.com.br/)**, sem cópia direta.
+---
 
-### 11.2 Características desejadas
+## 12. Identidade Visual
 
-- Layout limpo e premium
-- Tom financeiro profissional
-- Seções bem organizadas
-- Uso de cards
-- Destaques visuais estratégicos
-- Botões fortes e chamadas claras
-- Foco em conversão
-- Design moderno e responsivo
+### 12.1 Características
+- Layout limpo e premium · tom financeiro profissional · cards arredondados com sombras leves · foco em conversão · design moderno e responsivo.
 
-### 11.3 Paleta e estilo
-
+### 12.2 Paleta e tema
 | Elemento | Diretriz |
 |----------|----------|
-| **Fundo** | Tons bege, branco ou gelo (claro) |
-| **Cor principal** | Verde financeiro **ou** laranja moderno |
-| **Textos** | Preto / cinza escuro |
-| **Cards** | Bordas suaves, cantos arredondados, sombras leves |
-| **Componentes** | Elementos arredondados, hierarquia visual clara |
+| **Cor principal** | Verde financeiro (`#059669` claro / `#00e676` escuro) |
+| **App** | Suporta tema **claro e escuro** (preferência do usuário) |
+| **Landing** | **Tema escuro fixo** (independente da preferência do usuário) |
+| **Cards/Componentes** | Bordas suaves, cantos arredondados, hierarquia clara |
 
-### 11.4 Landing page
+### 12.3 Responsividade e acessibilidade
+- Adaptada a mobile, tablet, notebook e monitores grandes.
+- **Scroll padronizado** em todo o sistema; modais com scroll interno.
+- Respeita `prefers-reduced-motion`; erros de formulário com `role="alert"`; tabelas navegáveis por teclado.
 
-A landing page deve ser:
-
-- Moderna, premium, limpa e responsiva
-- Focada em desktop e mobile
-- Orientada à conversão (cadastro / trial)
-- Comunicando transformação financeira, não apenas lista de features
+### 12.4 Landing page
+Moderna, premium, enxuta e orientada à conversão; comunica transformação financeira, não apenas lista de features.
 
 ---
 
-## 12. Tom de Comunicação
+## 13. Tom de Comunicação
 
-### 12.1 Princípios
+### 13.1 Princípios
+- Clara, humana e comercial · foco em **transformação financeira** · linguagem acessível · empoderamento do usuário.
 
-- Clara, humana e comercial
-- Foco em **transformação financeira**, não em funcionalidades isoladas
-- Linguagem acessível, sem jargão excessivo
-- Empoderamento: o usuário entende e decide melhor
-
-### 12.2 Frases de referência
-
+### 13.2 Frases de referência
 - *"Pare de apenas anotar gastos. Comece a entender seu dinheiro."*
-- *"O FinIA Control mostra para onde seu dinheiro foi e te ajuda a planejar para onde ele deve ir."*
 - *"Organize sua renda fixa, variável e extra com previsões inteligentes."*
 - *"Saiba o impacto de uma compra antes de fazer."*
 - *"Tenha uma IA financeira olhando seus números todos os dias."*
 
-### 12.3 O que evitar
-
-- Tom técnico demais na landing e no produto
-- Promessas sem base nos dados do usuário
-- Linguagem que reduza o produto a "mais um app de gastos"
+### 13.3 O que evitar
+- Tom técnico demais na landing e no produto.
+- Promessas sem base nos dados do usuário.
+- Linguagem que reduza o produto a "mais um app de gastos".
 
 ---
 
-## 13. Fase Atual do Projeto
+## 14. Ambientes e Deploy
+
+| Ambiente | Branch | Domínio | Público |
+|----------|--------|---------|---------|
+| **Produção** | `main` | `finiacontrol.com.br` | clientes |
+| **Teste/Staging** | `staging` | `finaicontrol.vercel.app` | testes |
+
+- Deploy via **Vercel**; banco em **Neon**.
+- O domínio de teste está conectado ao environment **Preview** (branch `staging`).
+- **Pendências de ambiente:** banco Neon separado para staging, `noindex` no domínio de teste e `NEXT_PUBLIC_APP_URL` distinto por ambiente.
+
+---
+
+## 15. Fase Atual do Projeto
 
 | Item | Status |
 |------|--------|
-| Documentação principal (`FINIA_CONTROL_CONTEXT.md`) | ✅ Atualizada (stack Neon + Next.js) |
-| Landing page | ✅ Concluída |
-| Cadastro / login (e-mail + senha, Neon) | ✅ `/cadastro`, `/login` |
-| Onboarding (1 tela, só PF) | ✅ `/onboarding`, sem wizard de 6 passos nem modo empresa |
-| App shell + proteção de rotas | ✅ `src/proxy.ts` + layout server-side |
-| Dashboard com dados reais | ✅ `/dashboard` |
-| CRUD Receitas, Despesas, Dívidas, Metas | ✅ Server Actions + `ResourceManager` |
-| Módulo Emprestei (`/emprestei`) | ✅ Empréstimos, juros, parcelas e pagamentos |
-| Configurações (perfil + logout) | ✅ `/configuracoes` |
-| Assistente IA (`/ia`) | 🔜 Placeholder |
-| Recuperação de senha / verificação de e-mail | 🔜 Fase futura |
-| Contas parceladas, relatórios, planos | 🔜 Fase futura |
-| Deploy produção (Vercel + env) | 🔜 Configurar quando publicar |
+| Documentação principal (este arquivo) | ✅ Atualizada |
+| Landing page (dark fixo, enxuta) | ✅ |
+| Cadastro / login / verificação de e-mail | ✅ |
+| **Recuperação de senha** | ✅ |
+| Onboarding (1 tela) | ✅ |
+| App shell + proteção de rotas | ✅ |
+| Dashboard com dados reais + projeção correta | ✅ |
+| CRUD Receitas, Despesas, Dívidas, Metas (tabelas paginadas) | ✅ |
+| Emprestei como entitlement do admin | ✅ |
+| Segurança (rate-limit, sessão assinada, gating server-side) | ✅ |
+| Responsividade e padronização de scroll | ✅ |
+| Configurações (perfil + troca de senha + logout) | ✅ |
+| Assistente IA com dados reais | 🔜 |
+| Contas fixas recorrentes, parcelamento completo, relatórios | 🔜 |
+| Planos/assinatura (Stripe), banco de staging isolado | 🔜 |
+| Deploy produção (Vercel + env) | ✅ Configurado |
 
 ### Diretriz para novas funcionalidades
 
-Ao solicitar novas features:
-
-1. Consultar este arquivo para alinhar com visão, regras e diferenciais.
-2. Usar a stack atual: **Server Actions** para mutations, **Server Components** para leitura, **Drizzle** para banco, **`getCurrentUser()`** para autorização.
-3. Manter identidade visual e tom de comunicação consistentes.
-4. Garantir que regras de negócio (especialmente IA e isolamento de dados) sejam respeitadas.
-5. Após mudanças no schema, rodar `npm run db:generate` e aplicar migração no Neon.
+1. Consultar este arquivo (e `docs/REQUISITOS_E_OBJETIVOS.md`) para alinhar com visão, regras e diferenciais.
+2. Usar a stack atual: **Server Actions** (escrita), **Server Components** (leitura), **Drizzle** (banco), **`getCurrentUser()`** (autorização).
+3. Manter identidade visual, responsividade, padrões de scroll e acessibilidade.
+4. Garantir as regras de negócio — especialmente **isolamento de dados** e **IA só com dados reais**.
+5. Após mudanças no schema, rodar `npm run db:generate` e aplicar a migração no Neon.
 
 ---
 

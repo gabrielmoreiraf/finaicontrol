@@ -8,13 +8,18 @@ export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ userId: string }> },
 ) {
-  // M7: avatares não são mais públicos — exige sessão válida.
+  // M7: avatares não são públicos — exige sessão válida.
   const viewer = await getCurrentUser();
   if (!viewer) {
     return new NextResponse(null, { status: 401 });
   }
 
   const { userId } = await context.params;
+
+  // B1: só o próprio dono ou um admin pode acessar o avatar (evita IDOR/enumeração).
+  if (viewer.id !== userId && viewer.role !== "admin") {
+    return new NextResponse(null, { status: 403 });
+  }
 
   const [profile] = await db
     .select({ avatarWebp: profiles.avatarWebp, avatarUpdatedAt: profiles.avatarUpdatedAt })

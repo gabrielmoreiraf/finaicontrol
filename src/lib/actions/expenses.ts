@@ -8,7 +8,7 @@ import { expenses } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/result";
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
-import { assertCanCreateEntry } from "@/lib/plans/guard";
+import { MONTHLY_LIMIT_MESSAGE, insertEntryWithMonthlyLimit } from "@/lib/plans/entry-limit";
 import { ensureExpenseCategory } from "@/lib/finance/expense-categories";
 import { readDayOfMonth } from "@/lib/finance/validate";
 
@@ -95,16 +95,23 @@ export async function createExpense(formData: FormData): Promise<ActionResult> {
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const limitError = await assertCanCreateEntry(user.id, user.plan);
-  if (limitError) return limitError;
-
   const values = parseValues(formData);
   const validationError = validateValues(formData, values);
   if (validationError) return actionError(validationError);
 
   try {
     if (values.category) await ensureExpenseCategory(user.id, values.category);
-    await db.insert(expenses).values({ userId: user.id, ...values });
+    const inserted = await insertEntryWithMonthlyLimit("expenses", user.id, user.plan, {
+      name: values.name,
+      amount: values.amount,
+      category: values.category,
+      type: values.type,
+      day_of_month: values.dayOfMonth,
+      expense_date: values.expenseDate,
+      installment_count: values.installmentCount,
+      payment_start_date: values.paymentStartDate,
+    });
+    if (!inserted) return actionError(MONTHLY_LIMIT_MESSAGE);
   } catch (error) {
     console.error("[createExpense]", error);
     return actionError(TOAST_MESSAGES.generic.error);

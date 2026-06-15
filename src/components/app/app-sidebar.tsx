@@ -46,7 +46,7 @@ export function AppSidebar({
         className="min-h-0 flex-1 space-y-1 overflow-hidden px-3 py-4"
         aria-label="Navegação principal"
       >
-        {navLinks.map(({ href, label, icon: Icon, feature }) => {
+        {navLinks.map(({ href, label, icon: Icon, feature, comingSoon }) => {
           const active =
             pathname === href ||
             (href !== "/dashboard" && pathname.startsWith(href));
@@ -84,6 +84,11 @@ export function AppSidebar({
                 aria-hidden
               />
               {label}
+              {comingSoon && !locked && (
+                <span className="ml-auto rounded-full border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]">
+                  Em breve
+                </span>
+              )}
               {limited && (
                 <span
                   className="ml-auto flex items-center gap-1.5"

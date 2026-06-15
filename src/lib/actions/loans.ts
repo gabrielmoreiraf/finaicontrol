@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { loanPayments, loans } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -10,9 +10,14 @@ import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/res
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
 import { assertLoansEnabled } from "@/lib/plans/guard";
 import {
+  buildLoanRow,
+  calculateMonthlyInterest,
   validateFixedInstallmentAmount,
   type LoanPaymentMode,
+  type LoanPaymentRecord,
   type LoanPaymentType,
+  type LoanRecord,
+  type LoanStatus,
 } from "@/lib/finance/loans";
 
 const PAYMENT_MODES: LoanPaymentMode[] = ["interest_only", "fixed_installments", "single"];
@@ -218,32 +223,81 @@ export async function registerLoanPayment(formData: FormData): Promise<ActionRes
 
   if (!loan) return actionError(TOAST_MESSAGES.generic.error);
 
-  let remaining = Number(loan.remainingPrincipal);
+  const loanRecord: LoanRecord = {
+    id: loan.id,
+    borrowerName: loan.borrowerName,
+    principalAmount: Number(loan.principalAmount),
+    remainingPrincipal: Number(loan.remainingPrincipal),
+    interestRatePercent: loan.interestRatePercent ? Number(loan.interestRatePercent) : null,
+    paymentMode: loan.paymentMode as LoanPaymentMode,
+    installmentAmount: loan.installmentAmount ? Number(loan.installmentAmount) : null,
+    installmentCount: loan.installmentCount,
+    dayOfMonth: loan.dayOfMonth,
+    startDate: loan.startDate,
+    expectedEndDate: loan.expectedEndDate,
+    status: loan.status as LoanStatus,
+    notes: loan.notes,
+  };
 
-  if (paymentType === "interest") {
-    // juros não reduzem principal
-  } else if (paymentType === "principal" || paymentType === "both") {
-    remaining = Math.max(0, remaining - amount);
-  } else if (paymentType === "full") {
-    remaining = 0;
+  const payRows = await db
+    .select()
+    .from(loanPayments)
+    .where(and(eq(loanPayments.loanId, loanId), eq(loanPayments.userId, user.id)));
+  const payments: LoanPaymentRecord[] = payRows.map((p) => ({
+    id: p.id,
+    loanId: p.loanId,
+    paidAt: p.paidAt,
+    amount: Number(p.amount),
+    paymentType: p.paymentType as LoanPaymentType,
+    note: p.note,
+  }));
+  const row = buildLoanRow(loanRecord, payments);
+
+  // F3.3: "quitação total" exige cobrir o valor devido (status coerente com o dinheiro).
+  if (paymentType === "full" && row.totalDueNow > 0 && amount + 0.001 < row.totalDueNow) {
+    return actionError("Para quitação total, informe ao menos o valor devido atual.");
   }
 
-  await db.insert(loanPayments).values({
-    loanId,
-    userId: user.id,
-    paidAt,
-    amount: amount.toFixed(2),
-    paymentType,
-    note,
-  });
+  // F3.2: em "juros + principal", só a parte que excede os juros abate o principal.
+  const interestDue =
+    calculateMonthlyInterest(loanRecord.remainingPrincipal, loanRecord.interestRatePercent) +
+    row.lateInterest;
+  const principalPaid = Math.max(0, amount - interestDue);
 
-  await db
-    .update(loans)
-    .set({
-      remainingPrincipal: remaining.toFixed(2),
-      status: remaining <= 0 ? "paid" : "active",
-    })
-    .where(and(eq(loans.id, loanId), eq(loans.userId, user.id)));
+  // A2: registro + baixa numa única transação, decremento atômico no banco.
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(loanPayments).values({
+        loanId,
+        userId: user.id,
+        paidAt,
+        amount: amount.toFixed(2),
+        paymentType,
+        note,
+      });
+
+      if (paymentType === "full") {
+        await tx
+          .update(loans)
+          .set({ remainingPrincipal: "0", status: "paid" })
+          .where(and(eq(loans.id, loanId), eq(loans.userId, user.id)));
+      } else if (paymentType === "principal" || paymentType === "both") {
+        // "principal": todo o valor abate o principal. "both": só a parte sem juros.
+        const reduction = paymentType === "both" ? principalPaid : amount;
+        await tx
+          .update(loans)
+          .set({
+            remainingPrincipal: sql`greatest(0, ${loans.remainingPrincipal} - ${reduction})`,
+            status: sql`case when ${loans.remainingPrincipal} - ${reduction} <= 0 then 'paid' else 'active' end`,
+          })
+          .where(and(eq(loans.id, loanId), eq(loans.userId, user.id)));
+      }
+      // paymentType "interest" não altera o principal.
+    });
+  } catch (error) {
+    console.error("[registerLoanPayment]", error);
+    return actionError(TOAST_MESSAGES.generic.error);
+  }
 
   revalidate();
   return actionSuccess(TOAST_MESSAGES.loan.paymentRegistered);

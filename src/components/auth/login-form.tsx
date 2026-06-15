@@ -9,7 +9,7 @@ import { notify } from "@/lib/toast";
 
 const initialState: AuthState = {};
 
-export function LoginForm() {
+export function LoginForm({ redirect }: { redirect?: string }) {
   const [state, formAction, pending] = useActionState(signInAction, initialState);
 
   useEffect(() => {
@@ -18,6 +18,7 @@ export function LoginForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {redirect && <input type="hidden" name="redirect" value={redirect} />}
       <AuthField
         id="login-email"
         name="email"

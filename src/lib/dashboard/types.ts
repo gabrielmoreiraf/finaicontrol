@@ -23,6 +23,8 @@ export interface DashboardHealthData {
   maxScore: number;
   status: string;
   description: string;
+  /** Define a cor do indicador: bom (verde), regular (amarelo), ruim (vermelho). */
+  tone: "good" | "regular" | "bad" | "empty";
 }
 
 export interface DashboardUpcomingIncome {

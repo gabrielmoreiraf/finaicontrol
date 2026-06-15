@@ -1,18 +1,8 @@
 import "server-only";
 
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { expenses, goals, incomes } from "@/lib/db/schema";
-import {
-  buildDespesaUpcoming,
-  type DespesaCategory,
-  type DespesaUpcoming,
-} from "@/lib/finance/despesas";
-
-const CATEGORY_COLORS = ["#00e676", "#f97316", "#8b5cf6", "#38bdf8", "#a3a3a3"];
-const UPCOMING_LIMIT = 6;
-const CATEGORY_LIMIT = 6;
-const UPCOMING_SCAN_LIMIT = 100;
 
 type TypeBucket = { total: number; count: number };
 
@@ -63,8 +53,6 @@ export type ExpenseSummary = {
   total: number;
   byType: Record<string, TypeBucket>;
   totalCount: number;
-  categories: DespesaCategory[];
-  upcoming: DespesaUpcoming[];
 };
 
 export async function getExpenseSummary(userId: string): Promise<ExpenseSummary> {
@@ -93,60 +81,7 @@ export async function getExpenseSummary(userId: string): Promise<ExpenseSummary>
     totalCount += bucket.count;
   }
 
-  const categoryRows = await db
-    .select({
-      name: sql<string>`coalesce(nullif(trim(${expenses.category}), ''), 'Sem categoria')`,
-      total: sql<string>`coalesce(sum(${expenses.amount}), 0)`,
-    })
-    .from(expenses)
-    .where(eq(expenses.userId, userId))
-    .groupBy(sql`coalesce(nullif(trim(${expenses.category}), ''), 'Sem categoria')`)
-    .orderBy(sql`sum(${expenses.amount}) desc`)
-    .limit(CATEGORY_LIMIT);
-
-  const grand = total || 1;
-  const categories: DespesaCategory[] = categoryRows.map((row, index) => {
-    const amount = Number(row.total);
-    return {
-      name: row.name,
-      amount,
-      percent: Math.round((amount / grand) * 100),
-      color: CATEGORY_COLORS[index % CATEGORY_COLORS.length] ?? "#a3a3a3",
-    };
-  });
-
-  // Próximos vencimentos: apenas despesas fixas com dia do mês (conjunto pequeno).
-  const fixedRows = await db
-    .select({
-      id: expenses.id,
-      name: expenses.name,
-      amount: expenses.amount,
-      category: expenses.category,
-      type: expenses.type,
-      dayOfMonth: expenses.dayOfMonth,
-    })
-    .from(expenses)
-    .where(
-      and(
-        eq(expenses.userId, userId),
-        eq(expenses.type, "fixed"),
-        sql`${expenses.dayOfMonth} is not null`,
-      ),
-    )
-    .limit(UPCOMING_SCAN_LIMIT);
-
-  const upcoming = buildDespesaUpcoming(
-    fixedRows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      amount: Number(r.amount),
-      category: r.category,
-      type: r.type,
-      dayOfMonth: r.dayOfMonth,
-    })),
-  ).slice(0, UPCOMING_LIMIT);
-
-  return { total, byType, totalCount, categories, upcoming };
+  return { total, byType, totalCount };
 }
 
 export type GoalSummary = {
@@ -155,6 +90,8 @@ export type GoalSummary = {
   completedCount: number;
   totalCurrent: number;
   totalTarget: number;
+  /** Soma das reservas mensais das metas ainda não concluídas. */
+  totalContribution: number;
 };
 
 export async function getGoalSummary(userId: string): Promise<GoalSummary> {
@@ -164,6 +101,7 @@ export async function getGoalSummary(userId: string): Promise<GoalSummary> {
       completed: sql<number>`count(*) filter (where ${goals.completed})::int`,
       current: sql<string>`coalesce(sum(${goals.currentAmount}), 0)`,
       target: sql<string>`coalesce(sum(${goals.targetAmount}), 0)`,
+      contribution: sql<string>`coalesce(sum(${goals.monthlyContribution}) filter (where not ${goals.completed}), 0)`,
     })
     .from(goals)
     .where(eq(goals.userId, userId));
@@ -177,5 +115,6 @@ export async function getGoalSummary(userId: string): Promise<GoalSummary> {
     completedCount,
     totalCurrent: Number(row?.current ?? 0),
     totalTarget: Number(row?.target ?? 0),
+    totalContribution: Number(row?.contribution ?? 0),
   };
 }

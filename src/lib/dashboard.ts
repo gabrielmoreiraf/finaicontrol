@@ -20,6 +20,12 @@ import type {
 } from "@/lib/dashboard/types";
 import { brl, INCOME_TYPE_LABELS } from "@/lib/finance/format";
 import {
+  daysUntil,
+  formatShortDate,
+  nextOccurrence,
+  parseLocalDate,
+} from "@/lib/finance/date";
+import {
   buildLoanRow,
   getNextDueDate,
   type LoanPaymentMode,
@@ -61,30 +67,6 @@ export interface DashboardData {
 
 const MONTH_LABELS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function nextOccurrence(dayOfMonth: number, from = new Date()): Date {
-  const year = from.getFullYear();
-  const month = from.getMonth();
-  const lastDay = new Date(year, month + 1, 0).getDate();
-  const day = Math.min(dayOfMonth, lastDay);
-  let target = new Date(year, month, day);
-  if (target < from) {
-    const nextMonth = month + 1;
-    const nextLast = new Date(year, nextMonth + 1, 0).getDate();
-    target = new Date(year, nextMonth, Math.min(dayOfMonth, nextLast));
-  }
-  return target;
-}
-
-function daysUntil(date: Date, from = new Date()): number {
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
-}
-
-function formatShortDate(date: Date): string {
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
 function billPriority(days: number): DashboardUpcomingBill["priority"] {
   if (days <= 3) return "high";
   if (days <= 7) return "medium";
@@ -94,7 +76,8 @@ function billPriority(days: number): DashboardUpcomingBill["priority"] {
 function buildSummary(
   monthlyIncome: number,
   monthlyExpenses: number,
-  balance: number,
+  freeAfterGoals: number,
+  goalReservations: number,
   goalCount: number,
   incomeCount: number,
   expenseCount: number,
@@ -119,9 +102,16 @@ function buildSummary(
     {
       id: "balance",
       label: "Saldo projetado",
-      value: brl(balance),
-      change: balance > 0 ? "positivo" : balance < 0 ? "atenção: negativo" : "sem movimentação",
-      trend: balance > 0 ? "up" : balance < 0 ? "down" : "neutral",
+      value: brl(freeAfterGoals),
+      change:
+        goalReservations > 0
+          ? `livre após contas e ${brl(goalReservations)} em metas`
+          : freeAfterGoals > 0
+            ? "livre após contas pagas"
+            : freeAfterGoals < 0
+              ? "atenção: negativo"
+              : "sem movimentação",
+      trend: freeAfterGoals > 0 ? "up" : freeAfterGoals < 0 ? "down" : "neutral",
       icon: "balance",
     },
     {
@@ -142,10 +132,13 @@ function buildHealth(balance: number, savingsRate: number, hasData: boolean): Da
       maxScore: 100,
       status: EMPTY_DISPLAY,
       description: "Cadastre receitas e despesas para calcular sua saúde financeira.",
+      tone: "empty",
     };
   }
 
   const score = Math.min(100, Math.max(0, 40 + savingsRate));
+  const tone: DashboardHealthData["tone"] =
+    balance < 0 ? "bad" : score >= 70 ? "good" : "regular";
   return {
     score,
     maxScore: 100,
@@ -154,6 +147,7 @@ function buildHealth(balance: number, savingsRate: number, hasData: boolean): Da
       balance >= 0
         ? `Poupança projetada: ${savingsRate}%.`
         : "Despesas acima das receitas. Ajuste o orçamento.",
+    tone,
   };
 }
 
@@ -327,7 +321,7 @@ function buildTemporaryIncomes(
   return incomeRows
     .filter((row) => row.type === "temporary" && row.endDate)
     .map((row) => {
-      const end = new Date(row.endDate!);
+      const end = parseLocalDate(row.endDate!);
       const monthsLeft = Math.max(
         0,
         (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth()),
@@ -458,7 +452,7 @@ function buildAlerts(
 
   for (const income of incomeRows) {
     if (income.type !== "temporary" || !income.endDate) continue;
-    const end = new Date(income.endDate);
+    const end = parseLocalDate(income.endDate);
     if (Number.isNaN(end.getTime())) continue;
     const monthsLeft =
       (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth());
@@ -499,7 +493,14 @@ export const getDashboardData = cache(async function getDashboardData(
       getCachedIncomes(userId),
       getCachedExpenses(userId),
       db.select().from(debts).where(eq(debts.userId, userId)),
-      db.select({ id: goals.id }).from(goals).where(eq(goals.userId, userId)),
+      db
+        .select({
+          id: goals.id,
+          monthlyContribution: goals.monthlyContribution,
+          completed: goals.completed,
+        })
+        .from(goals)
+        .where(eq(goals.userId, userId)),
       db.select().from(loans).where(eq(loans.userId, userId)),
       db.select().from(loanPayments).where(eq(loanPayments.userId, userId)),
     ]);
@@ -516,6 +517,14 @@ export const getDashboardData = cache(async function getDashboardData(
   const savingsRate = monthlyIncome > 0 ? Math.round((balance / monthlyIncome) * 100) : 0;
   const hasData = monthlyIncome > 0 || monthlyExpenses > 0;
   const goalCount = goalRows.length;
+
+  // Reserva mensal das metas ativas → o "Saldo projetado" é o que sobra DEPOIS
+  // de pagar contas E reservar para as metas.
+  const goalReservations = goalRows.reduce(
+    (sum, g) => sum + (g.completed ? 0 : Number(g.monthlyContribution)),
+    0,
+  );
+  const freeAfterGoals = balance - goalReservations;
 
   const categoryTotals = new Map<string, number>();
   for (const e of expenseRows) {
@@ -540,8 +549,8 @@ export const getDashboardData = cache(async function getDashboardData(
     },
     {
       label: "Saldo projetado",
-      value: brl(balance),
-      change: balance >= 0 ? "positivo" : "atenção",
+      value: brl(freeAfterGoals),
+      change: goalReservations > 0 ? "após contas e metas" : freeAfterGoals >= 0 ? "positivo" : "atenção",
     },
     {
       label: "Metas ativas",
@@ -574,7 +583,8 @@ export const getDashboardData = cache(async function getDashboardData(
     summary: buildSummary(
       monthlyIncome,
       monthlyExpenses,
-      balance,
+      freeAfterGoals,
+      goalReservations,
       goalCount,
       incomeRows.length + (fixedIncome > 0 ? 1 : 0),
       expenseRows.length + debtRows.length,

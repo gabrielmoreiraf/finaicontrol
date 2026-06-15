@@ -24,7 +24,7 @@ export async function resendVerificationEmailAction(
   const email = normalizeEmail(String(formData.get("email") ?? ""));
 
   const ip = await getClientIp();
-  const limit = checkRateLimit(`resend:${ip}:${email}`, { max: 3, windowMs: 5 * 60_000 });
+  const limit = await checkRateLimit(`resend:${ip}:${email}`, { max: 3, windowMs: 5 * 60_000 });
   if (!limit.allowed) {
     return { error: tooManyRequestsMessage(limit.retryAfterSeconds) };
   }

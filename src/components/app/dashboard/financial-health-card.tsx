@@ -1,11 +1,35 @@
 import { Activity } from "lucide-react";
 import { DashboardPanel } from "@/components/app/dashboard/dashboard-panel";
 import type { DashboardHealthData } from "@/lib/dashboard/types";
+import { cn } from "@/lib/utils";
+
+const TONE_STYLES: Record<
+  DashboardHealthData["tone"],
+  { ring: string; text: string }
+> = {
+  good: {
+    ring: "text-brand drop-shadow-[0_0_8px_rgba(16,185,129,0.45)]",
+    text: "text-brand",
+  },
+  regular: {
+    ring: "text-amber-500 drop-shadow-[0_0_8px_rgba(245,158,11,0.45)] dark:text-amber-400",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  bad: {
+    ring: "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.45)] dark:text-red-400",
+    text: "text-red-600 dark:text-red-400",
+  },
+  empty: {
+    ring: "text-muted-foreground/50",
+    text: "text-muted-foreground",
+  },
+};
 
 export function FinancialHealthCard({ data }: { data: DashboardHealthData }) {
   const percentage = Math.round((data.score / data.maxScore) * 100);
   const circumference = 2 * Math.PI * 54;
   const offset = circumference - (percentage / 100) * circumference;
+  const tone = TONE_STYLES[data.tone];
 
   return (
     <DashboardPanel className="h-full">
@@ -37,7 +61,7 @@ export function FinancialHealthCard({ data }: { data: DashboardHealthData }) {
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
-                className="text-brand drop-shadow-[0_0_8px_rgba(16,185,129,0.45)]"
+                className={cn("transition-colors", tone.ring)}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -49,7 +73,7 @@ export function FinancialHealthCard({ data }: { data: DashboardHealthData }) {
           </div>
 
           <div className="text-center sm:text-left">
-            <p className="text-2xl font-bold text-brand">{data.status}</p>
+            <p className={cn("text-2xl font-bold", tone.text)}>{data.status}</p>
             <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
               {data.description}
             </p>

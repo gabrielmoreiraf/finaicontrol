@@ -1,5 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { DataPage } from "@/components/app/data-page";
 import { DespesasView } from "@/components/app/modules/despesas-view";
 import { PlanUsageBanner } from "@/components/app/plan-usage-banner";
 import { ResourceTable, type ResourceTableRow } from "@/components/app/resource-table";
@@ -11,13 +12,14 @@ import { debts, expenseCategories, expenses } from "@/lib/db/schema";
 import { ensureDefaultExpenseCategories } from "@/lib/finance/expense-categories";
 import { uniqueCategoryNames } from "@/lib/finance/category-names";
 import { EXPENSE_TYPE_LABELS, brl } from "@/lib/finance/format";
+import { getInstallmentProgress } from "@/lib/finance/installment-progress";
 import { getExpenseSummary } from "@/lib/finance/summary";
+import { parsePage, parsePageSize } from "@/lib/pagination";
 
-const PAGE_SIZE = 20;
 const EXPENSE_TYPES = ["fixed", "variable", "installment"];
 
 type PageProps = {
-  searchParams: Promise<{ page?: string; tipo?: string }>;
+  searchParams: Promise<{ page?: string; tipo?: string; por?: string; q?: string }>;
 };
 
 export default async function DespesasPage({ searchParams }: PageProps) {
@@ -28,7 +30,9 @@ export default async function DespesasPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const tipo = params.tipo && EXPENSE_TYPES.includes(params.tipo) ? params.tipo : "all";
-  const page = Math.max(1, Number(params.page) || 1);
+  const q = (params.q ?? "").trim().slice(0, 80);
+  const page = parsePage(params.page);
+  const pageSize = parsePageSize(params.por);
 
   const [summary, debtRows, categoryRows] = await Promise.all([
     getExpenseSummary(user.id),
@@ -42,20 +46,37 @@ export default async function DespesasPage({ searchParams }: PageProps) {
   const debtPayments = debtRows.reduce((sum, d) => sum + Number(d.monthlyPayment), 0);
   const categoryNames = uniqueCategoryNames(categoryRows.map((c) => c.name));
 
-  const where =
-    tipo === "all"
-      ? eq(expenses.userId, user.id)
-      : and(eq(expenses.userId, user.id), eq(expenses.type, tipo));
+  const conditions = [eq(expenses.userId, user.id)];
+  if (tipo !== "all") conditions.push(eq(expenses.type, tipo));
+  if (q) conditions.push(ilike(expenses.name, `%${q}%`));
+  const where = and(...conditions);
 
-  const total = tipo === "all" ? summary.totalCount : (summary.byType[tipo]?.count ?? 0);
-  const offset = (page - 1) * PAGE_SIZE;
+  // Total respeita o filtro de tipo E a busca (para a paginação bater).
+  const [countRow] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(expenses)
+    .where(where);
+  const total = Number(countRow?.total ?? 0);
+
+  // F2.1: clampa a página ao range válido (ex.: após exclusões na última página).
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (page > totalPages) {
+    const qs = new URLSearchParams();
+    if (tipo !== "all") qs.set("tipo", tipo);
+    if (q) qs.set("q", q);
+    if (params.por) qs.set("por", params.por);
+    if (totalPages > 1) qs.set("page", String(totalPages));
+    redirect(`/despesas${qs.toString() ? `?${qs}` : ""}`);
+  }
+
+  const offset = (page - 1) * pageSize;
 
   const rows = await db
     .select()
     .from(expenses)
     .where(where)
     .orderBy(desc(expenses.createdAt))
-    .limit(PAGE_SIZE)
+    .limit(pageSize)
     .offset(offset);
 
   const fields: ResourceField[] = [
@@ -106,27 +127,36 @@ export default async function DespesasPage({ searchParams }: PageProps) {
     },
   ];
 
-  const tableRows: ResourceTableRow[] = rows.map((r) => ({
-    id: r.id,
-    item: {
+  const tableRows: ResourceTableRow[] = rows.map((r) => {
+    const progress =
+      r.type === "installment"
+        ? getInstallmentProgress(r.paymentStartDate, r.installmentCount)
+        : null;
+    const typeLabel = EXPENSE_TYPE_LABELS[r.type] ?? r.type;
+    return {
       id: r.id,
-      name: r.name,
-      amount: Number(r.amount),
-      category: r.category,
-      type: r.type,
-      dayOfMonth: r.dayOfMonth,
-      expenseDate: r.expenseDate,
-      installmentCount: r.installmentCount,
-      paymentStartDate: r.paymentStartDate,
-    },
-    cells: {
-      name: r.name,
-      type: EXPENSE_TYPE_LABELS[r.type] ?? r.type,
-      category: r.category || "—",
-      day: r.dayOfMonth ?? "—",
-      amount: brl(Number(r.amount)),
-    },
-  }));
+      item: {
+        id: r.id,
+        name: r.name,
+        amount: Number(r.amount),
+        category: r.category,
+        type: r.type,
+        dayOfMonth: r.dayOfMonth,
+        expenseDate: r.expenseDate,
+        installmentCount: r.installmentCount,
+        paymentStartDate: r.paymentStartDate,
+      },
+      cells: {
+        name: r.name,
+        // Em parceladas mostra a parcela atual no rótulo do tipo (ex.: "Parcelada · 2/5").
+        type: progress ? `${typeLabel} · ${progress.current}/${progress.total}` : typeLabel,
+        category: r.category || "—",
+        day: r.dayOfMonth ?? "—",
+        amount: brl(Number(r.amount)),
+      },
+      details: progress ? [{ label: "Parcelas", value: progress.label }] : undefined,
+    };
+  });
 
   const filterTabs = [
     { id: "all", label: "Todas", count: summary.totalCount },
@@ -136,9 +166,11 @@ export default async function DespesasPage({ searchParams }: PageProps) {
   ];
 
   return (
-    <div className="space-y-10">
-      <PlanUsageBanner userId={user.id} planId={user.plan!} />
-      <DespesasView summary={summary} debtPayments={debtPayments} />
+    <DataPage>
+      <div className="shrink-0 space-y-4">
+        <PlanUsageBanner userId={user.id} planId={user.plan!} />
+        <DespesasView summary={summary} debtPayments={debtPayments} />
+      </div>
       <ResourceTable
         title="Gerenciar despesas"
         description="Adicione, edite ou remova despesas. Clique em uma linha para editar."
@@ -158,11 +190,13 @@ export default async function DespesasPage({ searchParams }: PageProps) {
         updateAction={updateExpense}
         deleteAction={deleteExpense}
         page={page}
-        pageSize={PAGE_SIZE}
+        pageSize={pageSize}
         total={total}
         filterTabs={filterTabs}
         activeFilter={tipo}
+        searchPlaceholder="Buscar despesa..."
+        fillHeight
       />
-    </div>
+    </DataPage>
   );
 }

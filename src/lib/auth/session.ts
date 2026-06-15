@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { profiles, sessions, users } from "@/lib/db/schema";
 import { buildAvatarUrl } from "@/lib/avatar/process-upload";
 import { getSessionCookieName } from "@/lib/auth/session-cookie";
+import { higherPlan } from "@/lib/plans";
 import type { AuthUser, SubscriptionPlan, UsageMode, UserRole } from "@/types/finance";
 
 const SESSION_TTL_DAYS = 30;
@@ -74,6 +75,8 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Aut
       emailVerified: users.emailVerified,
       mode: users.mode,
       plan: users.plan,
+      trialPlan: users.trialPlan,
+      trialExpiresAt: users.trialExpiresAt,
       role: users.role,
       loansEnabled: users.loansEnabled,
       onboardingComplete: users.onboardingComplete,
@@ -93,8 +96,13 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Aut
 
   const role = (row.role as UserRole) ?? "user";
   const storedPlan = (row.plan as SubscriptionPlan | null) ?? null;
-  // Admin tem acesso premium completo (plano efetivo), independente do plano salvo.
-  const effectivePlan: SubscriptionPlan | null = role === "admin" ? "premium" : storedPlan;
+  // Trial ativo: enquanto não expira, eleva o plano efetivo para o trialPlan
+  // (sem nunca rebaixar o plano real). Admin sempre tem premium.
+  const trialActive =
+    !!row.trialExpiresAt && !!row.trialPlan && row.trialExpiresAt.getTime() > Date.now();
+  const trialPlan = trialActive ? (row.trialPlan as SubscriptionPlan) : null;
+  const effectivePlan: SubscriptionPlan | null =
+    role === "admin" ? "premium" : higherPlan(storedPlan, trialPlan);
 
   return {
     id: row.id,

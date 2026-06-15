@@ -1,52 +1,62 @@
 import "server-only";
 
+import { createHmac } from "node:crypto";
+import { sql } from "drizzle-orm";
 import { headers } from "next/headers";
+import { db } from "@/lib/db/client";
+import { rateLimits } from "@/lib/db/schema";
+
+const RL_SECRET = process.env.SESSION_SECRET || "dev-insecure-session-secret";
+
+/** LGPD (Art. 13): pseudonimiza a chave (que contém IP/e-mail) antes de persistir. */
+function hashKey(key: string): string {
+  return createHmac("sha256", RL_SECRET).update(key).digest("hex");
+}
 
 /**
- * Rate limiter simples em memória (janela deslizante). Adequado para frear
- * rajadas de tentativas (login/cadastro/reenvio) numa instância quente. Em
- * ambiente serverless com múltiplas instâncias o limite é por instância — para
- * um limite global e persistente, migrar para Redis/Upstash ou tabela no banco.
+ * Rate limiter persistente (Postgres), com janela fixa atômica via upsert.
+ * Ao contrário de um Map em memória, o contador é GLOBAL — funciona mesmo com
+ * múltiplas instâncias serverless e cold starts. Uma única instrução SQL
+ * (INSERT ... ON CONFLICT) garante atomicidade, fechando a janela de corrida.
  */
-const buckets = new Map<string, number[]>();
-
-// Evita crescimento ilimitado do Map em processos longos.
-const MAX_KEYS = 5000;
-
 export type RateLimitResult = {
   allowed: boolean;
   retryAfterSeconds: number;
 };
 
-export function checkRateLimit(
+export async function checkRateLimit(
   key: string,
   options: { max: number; windowMs: number },
-): RateLimitResult {
-  const now = Date.now();
-  const windowStart = now - options.windowMs;
+): Promise<RateLimitResult> {
+  const windowExpr = sql`now() + (${options.windowMs}::bigint * interval '1 millisecond')`;
+  const storedKey = hashKey(key);
 
-  const timestamps = (buckets.get(key) ?? []).filter((t) => t > windowStart);
+  try {
+    const [row] = await db
+      .insert(rateLimits)
+      .values({ key: storedKey, count: 1, expiresAt: windowExpr })
+      .onConflictDoUpdate({
+        target: rateLimits.key,
+        set: {
+          // Janela expirada → reinicia em 1; senão incrementa.
+          count: sql`case when ${rateLimits.expiresAt} < now() then 1 else ${rateLimits.count} + 1 end`,
+          expiresAt: sql`case when ${rateLimits.expiresAt} < now() then ${windowExpr} else ${rateLimits.expiresAt} end`,
+        },
+      })
+      .returning({ count: rateLimits.count, expiresAt: rateLimits.expiresAt });
 
-  if (timestamps.length >= options.max) {
-    const oldest = timestamps[0]!;
-    const retryAfterSeconds = Math.max(1, Math.ceil((oldest + options.windowMs - now) / 1000));
-    buckets.set(key, timestamps);
-    return { allowed: false, retryAfterSeconds };
+    if (!row) return { allowed: true, retryAfterSeconds: 0 };
+
+    const allowed = row.count <= options.max;
+    const retryAfterSeconds = allowed
+      ? 0
+      : Math.max(1, Math.ceil((row.expiresAt.getTime() - Date.now()) / 1000));
+
+    return { allowed, retryAfterSeconds };
+  } catch {
+    // Fail-open em caso de erro de infra: não bloqueia usuários legítimos.
+    return { allowed: true, retryAfterSeconds: 0 };
   }
-
-  timestamps.push(now);
-  buckets.set(key, timestamps);
-
-  if (buckets.size > MAX_KEYS) {
-    // Limpeza preguiçosa: remove chaves cujas janelas já expiraram.
-    for (const [k, ts] of buckets) {
-      const fresh = ts.filter((t) => t > windowStart);
-      if (fresh.length === 0) buckets.delete(k);
-      else buckets.set(k, fresh);
-    }
-  }
-
-  return { allowed: true, retryAfterSeconds: 0 };
 }
 
 /** IP do cliente a partir dos headers de proxy (Vercel/Neon). */

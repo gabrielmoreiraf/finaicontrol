@@ -8,7 +8,7 @@ import { incomes } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/session";
 import { actionError, actionSuccess, type ActionResult } from "@/lib/actions/result";
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
-import { assertCanCreateEntry } from "@/lib/plans/guard";
+import { MONTHLY_LIMIT_MESSAGE, insertEntryWithMonthlyLimit } from "@/lib/plans/entry-limit";
 import { readDayOfMonth } from "@/lib/finance/validate";
 
 const INCOME_TYPES = ["fixed", "variable", "extra", "temporary"];
@@ -46,9 +46,6 @@ export async function createIncome(formData: FormData): Promise<ActionResult> {
   if (!user) redirect("/login");
   if (!user.plan) redirect("/escolher-plano");
 
-  const limitError = await assertCanCreateEntry(user.id, user.plan);
-  if (limitError) return limitError;
-
   const dayResult = readDayOfMonth(formData.get("dayOfMonth"));
   if (dayResult.error) return actionError(dayResult.error);
 
@@ -57,7 +54,14 @@ export async function createIncome(formData: FormData): Promise<ActionResult> {
   if (validationError) return actionError(validationError);
 
   try {
-    await db.insert(incomes).values({ userId: user.id, ...values });
+    const inserted = await insertEntryWithMonthlyLimit("incomes", user.id, user.plan, {
+      label: values.label,
+      amount: values.amount,
+      type: values.type,
+      day_of_month: values.dayOfMonth,
+      end_date: values.endDate,
+    });
+    if (!inserted) return actionError(MONTHLY_LIMIT_MESSAGE);
   } catch (error) {
     console.error("[createIncome]", error);
     return actionError(TOAST_MESSAGES.generic.error);

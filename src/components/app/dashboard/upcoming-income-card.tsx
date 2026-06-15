@@ -1,4 +1,5 @@
 import { Building2, CalendarDays } from "lucide-react";
+import { Amount } from "@/components/app/balance-visibility";
 import { EmptyState } from "@/components/app/premium/empty-state";
 import { PremiumCard } from "@/components/app/premium/premium-card";
 import type { DashboardUpcomingIncome } from "@/lib/dashboard/types";
@@ -18,7 +19,7 @@ export function UpcomingIncomeCard({ items }: { items: DashboardUpcomingIncome[]
             description="Cadastre receitas com dia do mês em Receitas para ver a timeline aqui."
           />
         ) : (
-          <ul className="space-y-0">
+          <ul className="finia-scroll max-h-[19rem] space-y-0 overflow-y-auto pr-1">
           {items.map((item, index) => (
             <li key={item.id} className="relative flex gap-4 pb-5 last:pb-0">
               {index < items.length - 1 && (
@@ -41,7 +42,9 @@ export function UpcomingIncomeCard({ items }: { items: DashboardUpcomingIncome[]
                     <span>{item.date}</span>
                   </div>
                 </div>
-                <p className="shrink-0 text-sm font-semibold text-brand sm:text-base">{item.amount}</p>
+                <p className="shrink-0 text-sm font-semibold text-brand sm:text-base">
+                  <Amount>{item.amount}</Amount>
+                </p>
               </div>
             </li>
           ))}

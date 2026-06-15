@@ -9,12 +9,15 @@ export type LegalDocument = {
 export const legalDocuments: Record<LegalDocumentId, LegalDocument> = {
   privacy: {
     title: "Política de Privacidade",
-    intro: "Seus dados são seus. Tratamos tudo com cuidado e transparência.",
+    intro: "Seus dados são seus. Tratamos tudo com cuidado e transparência, conforme a LGPD.",
     points: [
       "Coletamos nome, e-mail e as informações financeiras que você cadastra no app.",
-      "Usamos esses dados apenas para organizar sua conta, projeções e análises com IA.",
+      "Usamos esses dados apenas para organizar sua conta, projeções e análises com IA (finalidade específica).",
       "Não vendemos nem compartilhamos seus dados com terceiros para marketing.",
-      "Você pode pedir correção ou exclusão da conta quando quiser: contato@finia.com.br",
+      "Operadores que processam dados em nosso nome: Neon (banco de dados), Vercel (hospedagem) e Resend (envio de e-mails) — alguns com servidores fora do Brasil (transferência internacional com salvaguardas).",
+      "Seus direitos (LGPD Art. 18): você pode exportar seus dados e excluir sua conta definitivamente em Configurações › Privacidade e dados, a qualquer momento.",
+      "Registramos a data e a versão do seu aceite e mantemos logs de acesso administrativo para auditoria.",
+      "Dúvidas ou solicitações ao Encarregado (DPO): contato@finia.com.br",
     ],
   },
   terms: {

@@ -5,6 +5,7 @@ import { users } from "@/lib/db/schema";
 import { createSession } from "@/lib/auth/session";
 import { getPostAuthPath } from "@/lib/auth/post-auth-redirect";
 import { markEmailVerified, verifyEmailToken, getEmailForVerificationToken } from "@/lib/auth/verification-token";
+import { sendWelcomeEmail } from "@/lib/email/send-welcome-email";
 import type { SubscriptionPlan } from "@/types/finance";
 
 function redirectToVerifyEmail(
@@ -34,7 +35,12 @@ export async function GET(request: NextRequest) {
   await markEmailVerified(userId);
 
   const rows = await db
-    .select({ onboardingComplete: users.onboardingComplete, plan: users.plan })
+    .select({
+      name: users.name,
+      email: users.email,
+      onboardingComplete: users.onboardingComplete,
+      plan: users.plan,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
@@ -46,5 +52,11 @@ export async function GET(request: NextRequest) {
     plan: (user?.plan as SubscriptionPlan | null) ?? null,
     onboardingComplete: user?.onboardingComplete ?? false,
   });
+
+  // Boas-vindas (não crítico — não bloqueia o redirecionamento se falhar).
+  if (user?.email) {
+    await sendWelcomeEmail({ to: user.email, name: user.name, destinationPath: destination });
+  }
+
   return NextResponse.redirect(`${origin}${destination}?toast=email-verified`);
 }

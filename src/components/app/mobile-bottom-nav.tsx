@@ -142,7 +142,7 @@ export function MobileBottomNav({
           </SheetHeader>
 
           <nav className="overflow-y-auto px-2 py-2" aria-label="Mais opções">
-            {moreLinks.map(({ href, label, shortLabel, icon: Icon, feature }) => {
+            {moreLinks.map(({ href, label, shortLabel, icon: Icon, feature, comingSoon }) => {
               const active =
                 pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
               const locked = !hasPlanAccess(planId, feature);
@@ -173,6 +173,11 @@ export function MobileBottomNav({
                     aria-hidden
                   />
                   <span className="min-w-0 flex-1 truncate">{displayLabel}</span>
+                  {comingSoon && !locked && (
+                    <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wide text-muted-foreground dark:border-white/10 dark:bg-white/[0.05]">
+                      Em breve
+                    </span>
+                  )}
                   {limited && (
                     <span
                       className="flex shrink-0 items-center gap-1.5"
