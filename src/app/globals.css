@@ -416,27 +416,33 @@
 
   .auth-main {
     min-height: 0;
-    overflow: hidden;
+    /* Rola por dentro quando o conteúdo não couber. A centralização é feita por
+       `margin: auto` no filho (.auth-fit) — assim centraliza quando cabe e
+       encosta no topo (rolável) quando não cabe, sem cortar a logo. */
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     padding: clamp(0.75rem, 3dvh, 1.5rem) clamp(1rem, 3vw, 2rem);
   }
 
   @media (max-width: 1023px) {
     .auth-main {
-      justify-content: flex-start;
-      padding-top: clamp(1rem, 5dvh, 2rem);
+      padding-top: clamp(1rem, 4dvh, 2rem);
+      padding-bottom: clamp(1rem, 4dvh, 2rem);
     }
   }
 
   .auth-fit {
     width: 100%;
     max-width: 80rem;
-    max-height: 100%;
     height: auto;
     flex: 0 0 auto;
+    /* Centraliza verticalmente quando há espaço; encosta no topo (rolável)
+       quando o conteúdo é mais alto que a área — sem cortar a logo. */
+    margin-block: auto;
     transform-origin: center center;
   }
 
@@ -474,20 +480,13 @@
     }
   }
 
-  /* Telas baixas (cadastro): escala visual sem reservar caixa extra no layout */
+  /* Telas baixas (cadastro): mantém o tamanho real e deixa rolar (sem zoom-down,
+     que podia cortar o topo do formulário). */
   @media (max-height: 820px) {
     .auth-page {
       zoom: 1;
       height: 100dvh;
       width: 100vw;
-    }
-    .auth-brand-column {
-      zoom: 0.92;
-    }
-  }
-  @media (max-height: 720px) {
-    .auth-brand-column {
-      zoom: 0.86;
     }
   }
 

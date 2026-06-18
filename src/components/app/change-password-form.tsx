@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { Eye, EyeOff, KeyRound, Lock, Pencil, Save, X } from "lucide-react";
 import { SettingsField, settingsInputClass } from "@/components/app/settings-field";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { Button } from "@/components/ui/button";
 import { changePasswordAction, type ProfileState } from "@/lib/actions/profile";
 import { notify, TOAST_MESSAGES } from "@/lib/toast";
@@ -15,12 +16,14 @@ function SettingsPasswordField({
   name,
   autoComplete,
   minLength,
+  onValueChange,
 }: {
   id: string;
   label: string;
   name: string;
   autoComplete: string;
   minLength?: number;
+  onValueChange?: (value: string) => void;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -47,6 +50,7 @@ function SettingsPasswordField({
         autoComplete={autoComplete}
         required
         minLength={minLength}
+        onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
         className={settingsInputClass}
       />
     </SettingsField>
@@ -56,14 +60,18 @@ function SettingsPasswordField({
 export function ChangePasswordForm() {
   const [editing, setEditing] = useState(false);
   const [formKey, setFormKey] = useState(0);
+  const [newPassword, setNewPassword] = useState("");
   const [state, formAction, pending] = useActionState(changePasswordAction, initialState);
 
   useEffect(() => {
     if (state.error) notify.error(state.error);
     if (state.success) {
       notify.success(state.message ?? TOAST_MESSAGES.profile.passwordUpdated);
+      // Reagimos ao resultado da server action (sistema externo) — setState aqui é intencional.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditing(false);
       setFormKey((key) => key + 1);
+      setNewPassword("");
     }
   }, [state.error, state.success, state.message]);
 
@@ -113,16 +121,17 @@ export function ChangePasswordForm() {
               name="newPassword"
               label="Nova senha"
               autoComplete="new-password"
-              minLength={6}
+              onValueChange={setNewPassword}
             />
             <SettingsPasswordField
               id="confirmPassword"
               name="confirmPassword"
               label="Confirmar nova senha"
               autoComplete="new-password"
-              minLength={6}
             />
           </div>
+
+          <PasswordChecklist password={newPassword} className="sm:grid-cols-2" />
 
           <div className="flex flex-wrap gap-3">
             <Button type="submit" className="btn-brand rounded-xl gap-2" disabled={pending}>

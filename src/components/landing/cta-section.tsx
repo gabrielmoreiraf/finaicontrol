@@ -39,7 +39,7 @@ export function CtaSection() {
             <div className="mt-10 flex justify-center">
               <ReactBitsButton href="/cadastro" color="#10b981">
                 <span className="inline-flex items-center gap-2">
-                  Começar agora
+                  Começar 30 dias grátis
                   <ArrowRight className="h-4 w-4" />
                 </span>
               </ReactBitsButton>

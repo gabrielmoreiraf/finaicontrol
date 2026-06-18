@@ -10,6 +10,8 @@ import { createSession, destroySession } from "@/lib/auth/session";
 import { getEmailValidationError, normalizeEmail } from "@/lib/auth/validate-email";
 import { createEmailVerificationToken } from "@/lib/auth/verification-token";
 import { getValidInvitation, markInvitationAccepted } from "@/lib/auth/invitation";
+import { grantSignupTrialIfNew } from "@/lib/auth/trial";
+import { getPasswordError } from "@/lib/auth/password-policy";
 import {
   checkRateLimit,
   getClientIp,
@@ -68,8 +70,9 @@ export async function signUpAction(
     return { error: emailError };
   }
 
-  if (password.length < 6) {
-    return { error: "A senha deve ter ao menos 6 caracteres." };
+  const passwordError = getPasswordError(password);
+  if (passwordError) {
+    return { error: passwordError };
   }
 
   // LGPD (Art. 8º): consentimento obrigatório e registrado.
@@ -112,6 +115,7 @@ export async function signUpAction(
     const invitedUserId = insertedInvited[0].id;
     await db.insert(profiles).values({ userId: invitedUserId });
     await markInvitationAccepted(inviteToken);
+    await grantSignupTrialIfNew(invitedUserId); // 30 dias grátis de boas-vindas
 
     const invitedDestination = getPostAuthPath({ plan: invite.plan, onboardingComplete: false });
     // Boas-vindas (não crítico — não bloqueia o cadastro se falhar).

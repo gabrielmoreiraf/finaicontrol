@@ -13,7 +13,7 @@ import { ReactBitsButton } from "@/components/react-bits/react-bits-button";
 const Aurora = dynamic(() => import("@/components/Aurora"), { ssr: false });
 
 const heroTrustPoints = [
-  "Grátis para começar",
+  "30 dias grátis de acesso completo",
   "Sem cartão no cadastro",
   "IA com seus dados reais",
 ] as const;
@@ -58,7 +58,7 @@ export function HeroSection() {
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:items-center">
-              <ReactBitsButton href="/cadastro">Começar agora</ReactBitsButton>
+              <ReactBitsButton href="/cadastro">Começar 30 dias grátis</ReactBitsButton>
               <Button
                 size="lg"
                 variant="outline"

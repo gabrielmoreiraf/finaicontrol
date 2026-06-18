@@ -2,17 +2,45 @@ import "server-only";
 
 import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { debts, expenses, goals, incomes, loans, profiles } from "@/lib/db/schema";
-import { getExpenseSummary, getGoalSummary, getIncomeSummary } from "@/lib/finance/summary";
+import {
+  debts,
+  expenses,
+  goals,
+  incomes,
+  loans,
+  profiles,
+} from "@/lib/db/schema";
+import {
+  getExpenseSummary,
+  getGoalSummary,
+  getIncomeSummary,
+} from "@/lib/finance/summary";
 import { getInstallmentProgress } from "@/lib/finance/installment-progress";
-import { EXPENSE_TYPE_LABELS, INCOME_TYPE_LABELS, brl } from "@/lib/finance/format";
+import {
+  EXPENSE_TYPE_LABELS,
+  INCOME_TYPE_LABELS,
+  brl,
+} from "@/lib/finance/format";
 
-/** Quantos registros individuais recentes enviar à IA (limita tokens/custo). */
-const RECENT_LIMIT = 10;
+/** Quantos registros individuais recentes enviar à IA (limita tokens). */
+const RECENT_LIMIT = 20;
 /** Teto de linhas usadas no cálculo da projeção (segurança). */
 const PROJ_ROW_LIMIT = 500;
 
-const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const MONTHS_PT = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
 
 function monthIndexOf(d: Date): number {
   return d.getFullYear() * 12 + d.getMonth();
@@ -36,7 +64,10 @@ function monthLabel(idx: number): string {
 }
 
 /** Formata uma linha "tipo: total (N lançamento(s))". */
-function typeLine(label: string, bucket?: { total: number; count: number }): string {
+function typeLine(
+  label: string,
+  bucket?: { total: number; count: number },
+): string {
   const total = bucket?.total ?? 0;
   const count = bucket?.count ?? 0;
   return `  - ${label}: ${brl(total)} (${count} lançamento(s))`;
@@ -74,7 +105,13 @@ function buildProjection(
       const start = parseMonthIndex(e.paymentStartDate);
       const count = e.installmentCount ?? 0;
       return start !== null && count > 0
-        ? { name: e.name, parcela: Number(e.amount), start, count, endIdx: start + count - 1 }
+        ? {
+            name: e.name,
+            parcela: Number(e.amount),
+            start,
+            count,
+            endIdx: start + count - 1,
+          }
         : null;
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
@@ -84,15 +121,19 @@ function buildProjection(
     ? Math.max(baseIndex + 5, installments[installments.length - 1].endIdx)
     : baseIndex + 5;
 
-  const horizon = Math.min(12, Math.max(6, lastEndIdx - baseIndex + 1));
+  const horizon = Math.min(36, Math.max(6, lastEndIdx - baseIndex + 1));
   const debtPlans = debtRows.map((d) => {
     const bal = Number(d.balance);
     const pay = Number(d.monthlyPayment);
-    return { pay, months: pay > 0 ? Math.ceil(bal / pay) : Number.POSITIVE_INFINITY };
+    return {
+      pay,
+      months: pay > 0 ? Math.ceil(bal / pay) : Number.POSITIVE_INFINITY,
+    };
   });
 
   let cumulative = 0;
-  const rows: { idx: number; net: number; cumulative: number; line: string }[] = [];
+  const rows: { idx: number; net: number; cumulative: number; line: string }[] =
+    [];
   for (let i = 0; i < horizon; i++) {
     const idx = baseIndex + i;
 
@@ -114,7 +155,12 @@ function buildProjection(
       if (e.type === "installment") {
         const start = parseMonthIndex(e.paymentStartDate);
         const count = e.installmentCount ?? 0;
-        if (start !== null && count > 0 && (idx < start || idx > start + count - 1)) continue;
+        if (
+          start !== null &&
+          count > 0 &&
+          (idx < start || idx > start + count - 1)
+        )
+          continue;
       }
       despesas += a;
     }
@@ -133,8 +179,10 @@ function buildProjection(
   }
 
   const byIdx = new Map(rows.map((r) => [r.idx, r]));
-  const netAt = (idx: number): string => (byIdx.has(idx) ? brl(byIdx.get(idx)!.net) : "além da projeção");
-  const cumAt = (idx: number): string => (byIdx.has(idx) ? brl(byIdx.get(idx)!.cumulative) : "além da projeção");
+  const netAt = (idx: number): string =>
+    byIdx.has(idx) ? brl(byIdx.get(idx)!.net) : "além da projeção";
+  const cumAt = (idx: number): string =>
+    byIdx.has(idx) ? brl(byIdx.get(idx)!.cumulative) : "além da projeção";
 
   // Bloco mastigado: cada despesa parcelada, da que termina PRIMEIRO para a última.
   const installmentBlock = installments.length
@@ -230,7 +278,11 @@ export async function buildFinanceContext(userId: string): Promise<string> {
       .orderBy(desc(incomes.createdAt))
       .limit(RECENT_LIMIT),
     db
-      .select({ name: debts.name, balance: debts.balance, monthlyPayment: debts.monthlyPayment })
+      .select({
+        name: debts.name,
+        balance: debts.balance,
+        monthlyPayment: debts.monthlyPayment,
+      })
       .from(debts)
       .where(eq(debts.userId, userId))
       .orderBy(desc(debts.createdAt))
@@ -258,7 +310,11 @@ export async function buildFinanceContext(userId: string): Promise<string> {
       .limit(RECENT_LIMIT),
     // Linhas para a PROJEÇÃO (todas, colunas mínimas).
     db
-      .select({ amount: incomes.amount, type: incomes.type, endDate: incomes.endDate })
+      .select({
+        amount: incomes.amount,
+        type: incomes.type,
+        endDate: incomes.endDate,
+      })
       .from(incomes)
       .where(eq(incomes.userId, userId))
       .limit(PROJ_ROW_LIMIT),
@@ -312,11 +368,18 @@ export async function buildFinanceContext(userId: string): Promise<string> {
       const cat = e.category ? `, ${e.category}` : "";
       let detail = "";
       if (e.type === "installment") {
-        const prog = getInstallmentProgress(e.paymentStartDate, e.installmentCount);
+        const prog = getInstallmentProgress(
+          e.paymentStartDate,
+          e.installmentCount,
+        );
         const start = parseMonthIndex(e.paymentStartDate);
         const count = e.installmentCount ?? 0;
-        const end = start !== null && count > 0 ? ` · encerra em ${monthLabel(start + count - 1)}` : "";
-        detail = (prog ? ` · ${prog.label}` : count ? ` · ${count}x` : "") + end;
+        const end =
+          start !== null && count > 0
+            ? ` · encerra em ${monthLabel(start + count - 1)}`
+            : "";
+        detail =
+          (prog ? ` · ${prog.label}` : count ? ` · ${count}x` : "") + end;
       } else if (e.type === "fixed" && e.dayOfMonth) {
         detail = ` · vence todo dia ${e.dayOfMonth}`;
       } else if (e.type === "variable" && e.expenseDate) {
@@ -335,7 +398,10 @@ export async function buildFinanceContext(userId: string): Promise<string> {
     })
     .join("\n");
   const debtItems = debtList
-    .map((d) => `  - ${d.name} — saldo ${brl(Number(d.balance))}, parcela ${brl(Number(d.monthlyPayment))}`)
+    .map(
+      (d) =>
+        `  - ${d.name} — saldo ${brl(Number(d.balance))}, parcela ${brl(Number(d.monthlyPayment))}`,
+    )
     .join("\n");
   const goalItems = goalList
     .map((g) => {
@@ -346,7 +412,10 @@ export async function buildFinanceContext(userId: string): Promise<string> {
     })
     .join("\n");
   const loanItems = loanList
-    .map((l) => `  - ${l.borrower} — emprestado ${brl(Number(l.principal))}, a receber ${brl(Number(l.remaining))}`)
+    .map(
+      (l) =>
+        `  - ${l.borrower} — emprestado ${brl(Number(l.principal))}, a receber ${brl(Number(l.remaining))}`,
+    )
     .join("\n");
 
   const lines = [
@@ -369,7 +438,9 @@ export async function buildFinanceContext(userId: string): Promise<string> {
     `METAS: ${goal.totalCount} (${goal.completedCount} concluída(s)) · guardado ${brl(goal.totalCurrent)} de ${brl(goal.totalTarget)}.`,
     `EMPRÉSTIMOS A PESSOAS (módulo Emprestei): ${loan?.count ?? 0} registro(s), ${loan?.active ?? 0} em aberto · a receber ${brl(Number(loan?.remaining ?? 0))}.`,
     "",
-    categories ? `DESPESAS POR CATEGORIA:\n${categories}` : "DESPESAS POR CATEGORIA: nenhuma ainda.",
+    categories
+      ? `DESPESAS POR CATEGORIA:\n${categories}`
+      : "DESPESAS POR CATEGORIA: nenhuma ainda.",
     "",
     `DESPESAS RECENTES (até ${RECENT_LIMIT}, da MAIS RECENTE para a mais antiga — a 1ª é a última adicionada):`,
     expenseItems || "  (nenhuma)",

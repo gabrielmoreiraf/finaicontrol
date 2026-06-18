@@ -11,7 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { signOutAction } from "@/lib/actions/auth";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { profiles } from "@/lib/db/schema";
+import { profiles, users } from "@/lib/db/schema";
+
+const planDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+
+/** Rótulo da expiração do teste grátis (ou null se não há teste ativo). */
+function trialExpiresLabelOf(expiresAt: Date | null | undefined): string | null {
+  if (!expiresAt || expiresAt.getTime() <= Date.now()) return null;
+  return planDateFormatter.format(expiresAt);
+}
 
 export default async function ConfiguracoesPage() {
   const user = await getCurrentUser();
@@ -19,11 +31,12 @@ export default async function ConfiguracoesPage() {
   if (!user.plan) redirect("/escolher-plano");
 
   const plan = user.plan;
-  const [profile] = await db
-    .select()
-    .from(profiles)
-    .where(eq(profiles.userId, user.id))
-    .limit(1);
+  const [[profile], [userRow]] = await Promise.all([
+    db.select().from(profiles).where(eq(profiles.userId, user.id)).limit(1),
+    db.select({ trialExpiresAt: users.trialExpiresAt }).from(users).where(eq(users.id, user.id)).limit(1),
+  ]);
+
+  const trialExpiresLabel = trialExpiresLabelOf(userRow?.trialExpiresAt);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 xl:max-w-4xl 2xl:max-w-5xl">
@@ -50,7 +63,7 @@ export default async function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
-      <SettingsPlanCard planId={plan} />
+      <SettingsPlanCard planId={plan} trialExpiresLabel={trialExpiresLabel} />
 
       <AccountPrivacyCard />
 

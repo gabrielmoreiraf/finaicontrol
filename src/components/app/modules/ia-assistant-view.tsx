@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Loader2, Send, Sparkles, TriangleAlert } from "lucide-react";
+import { Bot, Info, Loader2, MessageCircle, Send, Sparkles, TriangleAlert } from "lucide-react";
 import { FiniaMascot } from "@/components/app/premium/finia-mascot";
 import { EmptyState } from "@/components/app/premium/empty-state";
 import { PageHeader } from "@/components/app/premium/page-header";
 import { PremiumCard } from "@/components/app/premium/premium-card";
 import { Button } from "@/components/ui/button";
+import { SUPPORT_WHATSAPP_URL } from "@/lib/brand";
 import { IA_SUGGESTIONS } from "@/lib/finance/format";
 import { cn } from "@/lib/utils";
 
@@ -114,10 +115,65 @@ export function IaAssistantView() {
         <p>
           <span className="font-medium">Atenção:</span> o Assistente IA ainda
           está em desenvolvimento e pode fornecer informações inconsistentes ou
-          imprecisas. Estamos evoluindo a ferramenta, se algo parecer errado,
-          por favor nos avise.
+          imprecisas. Estamos evoluindo a ferramenta — se algo parecer errado,{" "}
+          <a
+            href={SUPPORT_WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
+          >
+            fale com o suporte
+          </a>
+          .
         </p>
       </div>
+
+      {/* Explicador sempre visível (mobile + desktop): uso e limites do modelo gratuito. */}
+      <details className="group rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-3 text-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-medium text-foreground [&::-webkit-details-marker]:hidden">
+          <Info className="size-4 shrink-0 text-brand" aria-hidden />
+          Como a FinIA funciona (e por que às vezes fica indisponível)
+          <span className="ml-auto text-xs text-muted-foreground transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </summary>
+        <div className="mt-3 space-y-2.5 leading-relaxed text-muted-foreground">
+          <p>
+            As respostas são geradas com base nos{" "}
+            <strong className="font-medium text-foreground">seus dados cadastrados</strong>{" "}
+            (receitas, despesas, metas, parcelas...). Quanto mais completo o seu
+            cadastro, mais precisas ficam as respostas.
+          </p>
+          <p>
+            A FinIA usa um{" "}
+            <strong className="font-medium text-foreground">modelo de IA gratuito</strong>,
+            com um limite diário de uso{" "}
+            <strong className="font-medium text-foreground">
+              compartilhado entre todos os usuários
+            </strong>
+            . Em dias de uso intenso esse limite pode se esgotar e o assistente
+            fica indisponível por um tempo — quando isso acontecer, é só tentar
+            novamente mais tarde.
+          </p>
+          <p>
+            Ela responde apenas sobre{" "}
+            <strong className="font-medium text-foreground">finanças e o uso do sistema</strong>.
+            Nunca peça nem compartilhe senhas, PIX ou dados de cartão.
+          </p>
+          <p className="pt-1">
+            Encontrou algo errado ou tem dúvidas?{" "}
+            <a
+              href={SUPPORT_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-brand hover:underline"
+            >
+              <MessageCircle className="size-3.5" aria-hidden />
+              Falar com o suporte
+            </a>
+          </p>
+        </div>
+      </details>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_280px] lg:items-start">
         <PremiumCard className="flex flex-col overflow-hidden ai-assistant-glow border-brand/15">

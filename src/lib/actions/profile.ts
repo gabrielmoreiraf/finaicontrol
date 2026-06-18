@@ -7,6 +7,7 @@ import { db } from "@/lib/db/client";
 import { profiles, users } from "@/lib/db/schema";
 import { getCurrentUser, invalidateOtherSessions } from "@/lib/auth/session";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { getPasswordError } from "@/lib/auth/password-policy";
 import { convertAvatarToWebp, validateAvatarFile } from "@/lib/avatar/process-upload";
 import { TOAST_MESSAGES } from "@/lib/toast/messages";
 
@@ -102,8 +103,9 @@ export async function changePasswordAction(
     return { error: "Preencha todos os campos de senha." };
   }
 
-  if (newPassword.length < 6) {
-    return { error: "A nova senha deve ter ao menos 6 caracteres." };
+  const passwordError = getPasswordError(newPassword);
+  if (passwordError) {
+    return { error: passwordError };
   }
 
   if (newPassword !== confirmPassword) {

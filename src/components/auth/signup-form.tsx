@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Lock, Mail, Ticket, User } from "lucide-react";
 import { AuthField } from "@/components/auth/auth-field";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { signUpAction, type AuthState } from "@/lib/actions/auth";
 import type { SubscriptionPlan } from "@/types/finance";
 import { notify } from "@/lib/toast";
@@ -14,6 +15,7 @@ type InviteInfo = { token: string; email: string; plan: SubscriptionPlan | null 
 
 export function SignupForm({ invite = null }: { invite?: InviteInfo | null }) {
   const [state, formAction, pending] = useActionState(signUpAction, initialState);
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (state.error) notify.error(state.error);
@@ -64,13 +66,14 @@ export function SignupForm({ invite = null }: { invite?: InviteInfo | null }) {
         name="password"
         label="SENHA"
         type="password"
-        placeholder="Mínimo de 6 caracteres"
+        placeholder="Crie uma senha forte"
         icon={Lock}
         autoComplete="new-password"
-        minLength={6}
         required
         revealToggle
+        onValueChange={setPassword}
       />
+      <PasswordChecklist password={password} className="-mt-1" />
 
       {state.error && (
         <p

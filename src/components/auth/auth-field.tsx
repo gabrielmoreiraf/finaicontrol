@@ -17,6 +17,7 @@ export function AuthField({
   revealToggle,
   defaultValue,
   readOnly,
+  onValueChange,
 }: {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ export function AuthField({
   revealToggle?: boolean;
   defaultValue?: string;
   readOnly?: boolean;
+  onValueChange?: (value: string) => void;
 }) {
   const [visible, setVisible] = useState(false);
   const isPassword = type === "password";
@@ -63,6 +65,7 @@ export function AuthField({
           minLength={minLength}
           defaultValue={defaultValue}
           readOnly={readOnly}
+          onChange={onValueChange ? (event) => onValueChange(event.target.value) : undefined}
           className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/25 read-only:cursor-not-allowed read-only:text-white/55"
           style={{ paddingTop: "0.85em", paddingBottom: "0.85em", fontSize: "0.95em" }}
         />

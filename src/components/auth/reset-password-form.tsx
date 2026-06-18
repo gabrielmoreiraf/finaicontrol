@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Lock } from "lucide-react";
 import { AuthField } from "@/components/auth/auth-field";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
 import {
   resetPasswordAction,
   type ResetPasswordState,
@@ -17,6 +18,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
     resetPasswordAction,
     initialState,
   );
+  const [password, setPassword] = useState("");
 
   useEffect(() => {
     if (state.error) notify.error(state.error);
@@ -27,7 +29,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <input type="hidden" name="token" value={token} />
 
       <p className="text-white/70" style={{ fontSize: "0.95em", lineHeight: 1.5 }}>
-        Crie uma nova senha para sua conta. Ela precisa ter ao menos 6 caracteres.
+        Crie uma nova senha forte para sua conta.
       </p>
 
       <AuthField
@@ -39,9 +41,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         icon={Lock}
         autoComplete="new-password"
         required
-        minLength={6}
         revealToggle
+        onValueChange={setPassword}
       />
+      <PasswordChecklist password={password} className="-mt-1" />
 
       <AuthField
         id="reset-password-confirm"

@@ -39,6 +39,19 @@ export async function grantTrialDirect(
 }
 
 /**
+ * Concede o trial de boas-vindas (30 dias de acesso completo) a um usuário novo
+ * — SOMENTE se ele ainda nunca teve trial (trial_expires_at nulo). Idempotente:
+ * pode ser chamado mais de uma vez (ex.: reverificação de e-mail) sem estender.
+ */
+export async function grantSignupTrialIfNew(userId: string): Promise<void> {
+  const target = trialTarget(TRIAL_DAYS);
+  await db
+    .update(users)
+    .set({ trialPlan: TRIAL_PLAN, trialExpiresAt: target })
+    .where(and(eq(users.id, userId), sql`${users.trialExpiresAt} is null`));
+}
+
+/**
  * Cria um token de resgate AMARRADO a `userId`. Remove tokens pendentes
  * anteriores do mesmo usuário para evitar duplicados. Retorna o token.
  */

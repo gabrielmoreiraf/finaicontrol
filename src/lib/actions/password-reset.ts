@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth/password";
+import { getPasswordError } from "@/lib/auth/password-policy";
 import { destroyAllSessionsForUser } from "@/lib/auth/session";
 import { getEmailValidationError, normalizeEmail } from "@/lib/auth/validate-email";
 import {
@@ -86,8 +87,9 @@ export async function resetPasswordAction(
     return { error: "Link de redefinição inválido. Solicite um novo." };
   }
 
-  if (password.length < 6) {
-    return { error: "A senha deve ter ao menos 6 caracteres." };
+  const passwordError = getPasswordError(password);
+  if (passwordError) {
+    return { error: passwordError };
   }
 
   if (password !== confirmPassword) {

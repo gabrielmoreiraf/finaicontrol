@@ -6,6 +6,7 @@ import { createSession } from "@/lib/auth/session";
 import { getPostAuthPath } from "@/lib/auth/post-auth-redirect";
 import { markEmailVerified, verifyEmailToken, getEmailForVerificationToken } from "@/lib/auth/verification-token";
 import { sendWelcomeEmail } from "@/lib/email/send-welcome-email";
+import { grantSignupTrialIfNew } from "@/lib/auth/trial";
 import type { SubscriptionPlan } from "@/types/finance";
 
 function redirectToVerifyEmail(
@@ -33,6 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   await markEmailVerified(userId);
+  await grantSignupTrialIfNew(userId); // 30 dias grátis de boas-vindas (1ª ativação)
 
   const rows = await db
     .select({
