@@ -18,10 +18,6 @@ const PROTECTED_PREFIXES = [
   "/escolher-plano",
 ];
 
-const GUEST_ONLY_PATHS = ["/login", "/cadastro"];
-
-const PUBLIC_AUTH_PATHS = ["/verificar-email"];
-
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSession = request.cookies.has(SESSION_COOKIE);
@@ -29,25 +25,17 @@ export function proxy(request: NextRequest) {
   const isProtected = PROTECTED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-  const isGuestOnly = GUEST_ONLY_PATHS.includes(pathname);
-  const isPublicAuth = PUBLIC_AUTH_PATHS.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  );
 
+  // Só a guarda de rota protegida fica no edge (rápida, baseada na presença do
+  // cookie). O redirecionamento "já logado → dashboard" das páginas de login/
+  // cadastro foi movido para as próprias páginas (server-side), que validam a
+  // sessão no banco. Motivo: o edge só enxerga a PRESENÇA do cookie; quando ele
+  // existe mas é inválido (logout, sessão expirada/revogada), redirecionar aqui
+  // brigava com o redirect do layout (/login ↔ /dashboard) e travava em loop.
   if (isProtected && !hasSession) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
-  }
-
-  if (isGuestOnly && hasSession) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
-  }
-
-  if (isPublicAuth) {
-    return NextResponse.next();
   }
 
   return NextResponse.next();
@@ -66,8 +54,5 @@ export const config = {
     "/configuracoes/:path*",
     "/onboarding/:path*",
     "/escolher-plano",
-    "/login",
-    "/cadastro",
-    "/verificar-email/:path*",
   ],
 };

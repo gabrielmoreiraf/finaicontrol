@@ -1,6 +1,9 @@
+import { redirect as nextRedirect } from "next/navigation";
 import { AuthSplitLayout } from "@/components/auth/auth-split-layout";
 import { SignupForm } from "@/components/auth/signup-form";
 import { getValidInvitation } from "@/lib/auth/invitation";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getPostAuthPath } from "@/lib/auth/post-auth-redirect";
 import { getPlanLabel } from "@/lib/plans";
 
 export default async function CadastroPage({
@@ -8,6 +11,14 @@ export default async function CadastroPage({
 }: {
   searchParams: Promise<{ invite?: string }>;
 }) {
+  // Já autenticado → não faz sentido ver o cadastro; manda pro destino certo.
+  const user = await getCurrentUser();
+  if (user) {
+    nextRedirect(
+      getPostAuthPath({ plan: user.plan, onboardingComplete: user.onboardingComplete }),
+    );
+  }
+
   const { invite: inviteParam } = await searchParams;
   const invite = inviteParam ? await getValidInvitation(inviteParam) : null;
 

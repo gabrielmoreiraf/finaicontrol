@@ -142,9 +142,21 @@ export async function invalidateOtherSessions(userId: string): Promise<void> {
 
 export async function destroySession(): Promise<void> {
   const cookieStore = await cookies();
-  const token = readSignedToken(cookieStore.get(getSessionCookieName())?.value);
+  const name = getSessionCookieName();
+  const token = readSignedToken(cookieStore.get(name)?.value);
   if (token) {
     await db.delete(sessions).where(eq(sessions.id, token));
   }
-  cookieStore.delete(getSessionCookieName());
+  // O prefixo `__Host-` (usado em produção) exige que QUALQUER Set-Cookie desse
+  // nome — inclusive a remoção — venha com Secure + Path=/ e sem Domain. O
+  // `cookieStore.delete(name)` emite uma limpeza SEM Secure, que o navegador
+  // ignora, deixando o cookie preso (e gerando loop de redirect no logout).
+  // Por isso sobrescrevemos com os mesmos atributos de createSession + maxAge 0.
+  cookieStore.set(name, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
 }
